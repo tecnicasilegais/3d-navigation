@@ -1,12 +1,26 @@
 // **********************************************************************
-// Pine Shooter
-// Eduardo Andrade e Marcelo Heredia
+// PUCRS/Escola Polit�cnica
+// COMPUTA��O GR�FICA
+//
+// Simulador de Cidade
+//
+// Marcio Sarroglia Pinho
+// pinho@pucrs.br
 // **********************************************************************
-using namespace std;
-#ifdef WIN32
 
+#include <cstdlib>
+#include <iostream>
+#include <cmath>
+#include <ctime>
+
+using namespace std;
+
+
+#ifdef WIN32
 #include <windows.h>
-#include <GL/glut.h>
+#include <glut.h>
+#else
+#include <sys/time.h>
 #endif
 
 #ifdef __APPLE__
@@ -14,561 +28,583 @@ using namespace std;
 #endif
 
 #ifdef __linux__
-
 #include <GL/freeglut.h>
-
 #endif
 
 #include <iostream>
-#include "image_libs/ImageClass.h"
 #include "headers/Point.h"
 #include "headers/BoundingBox.h"
 #include "headers/Temporizador.h"
-#include "headers/Engine.h"
+#include "headers/ListaDeCoresRGB.h"
 
-// Global Variables
 Temporizador T;
-double accum_delta_t = 0;
+double AccumDeltaT=0;
 
-//defines where ALL TEXTURES are initialized (-1,-1) (1,1) square.
-BoundingBox INIT_POSITION;
 
-bool debug = false;
+GLfloat AspectRatio;
+GLfloat messages_panel = 0.2; //msg panel h %
+double nFrames=0;
+double TempoTotal=0;
 
-double n_frames = 0;
-double tempo_total = 0;
+/*
+// Controle do modo de projecao
+// 0: Projecao Paralela Ortografica; 1: Projecao Perspectiva
+// A funcao "PosicUser" utiliza esta variavel. O valor dela eh alterado
+// pela tecla 'p'*/
 
-int active_buildings;
-int alive_enemies;
-int spin_hits = 0;
+int ModoDeProjecao = 1;
 
-bool game_over = false;
-bool win;
-Message* msg_end;
+/*
+// Controle do modo de projecao
+// 0: Wireframe; 1: Faces preenchidas
+// A funcao "Init" utiliza esta variavel. O valor dela eh alterado
+// pela tecla 'w'*/
+int ModoDeExibicao = 1;
 
-//shoot timers
-bool shooted = false;
-double dt_shoot = 0;
 
-GLfloat end_animation_time = 0.0f;
-GLfloat total_animation_time = 4.0f;
+Point Curva1[3];
 
-ImageClass bg;
-GameTextures* gt;
-vector<Building> buildings;
-vector<Enemy> enemies;
-list<Explosion> explosions; //maybe use list
-list<Projectile> projectiles;
+// Qtd de ladrilhos do piso. Inicialzada na INIT
+int QtdX;
+int QtdZ;
 
-//TODO projectile
-Player* player;
-GLfloat AlturaViewportDeMensagens = 0.2; // percentual em relacao � altura da tela
 
-void init_textures()
-{
-    if (!bg.Load(BG_FILE))
-    { exit(666); } //load BG image
-    gt = new GameTextures;
-}
+// Representa o conteudo de uma celula do piso
+class Elemento{
+public:
+    int tipo;
+    int cor;
+    float altura;
+    int texID;
+};
 
-void init_buildings()
-{
-    auto b1 = Building(BUILD1, Point(175, FLOOR_H + 10), Point(7, 10));
-    buildings.emplace_back(b1);
+// codigos que definem o o tipo do elemento que est� em uma c�lula
+#define VAZIO 0
+#define PREDIO 10
+#define RUA 20
+#define COMBUSTIVEL 30
 
-    auto b2 = Building(BUILD2, Point(130, FLOOR_H + 10), Point(7, 10));
-    buildings.emplace_back(b2);
+// Matriz que armazena informacoes sobre o que existe na cidade
+Elemento Cidade[100][100];
+// ***********************************************
+//  void calcula_ponto(Point p, Point &out)
+//
+//  Esta fun��o calcula as coordenadas
+//  de um Point no sistema de refer�ncia do
+//  universo (SRU), ou seja, aplica as rota��es,
+//  escalas e transla��es a um Point no sistema
+//  de refer�ncia do objeto SRO.
+//  Para maiores detalhes, veja a p�gina
+//  https://www.inf.pucrs.br/pinho/CG/Aulas/OpenGL/Interseccao/ExerciciosDeInterseccao.html
+// ***********************************************
+void CalculaPonto(Point p, Point &out) {
 
-    auto b3 = Building(BUILD3, Point(210, FLOOR_H + 10), Point(7, 10));
-    buildings.emplace_back(b3);
+    GLfloat ponto_novo[4];
+    GLfloat matriz_gl[4][4];
+    int  i;
 
-    auto b4 = Building(BUILD4, Point(100, FLOOR_H + 10), Point(7, 10));
-    buildings.emplace_back(b4);
+    glGetFloatv(GL_MODELVIEW_MATRIX,&matriz_gl[0][0]);
 
-    active_buildings = buildings.size(); //next two are indestructible
-
-    auto stk = Building(PW_STICK, Point(150, FLOOR_H + 7), Point(1, 7), 0);
-    stk.health = -1; //infinite health
-    buildings.emplace_back(stk);
-
-    auto pin = Building(PW_SPIRAL, Point(150, FLOOR_H + 15), Point(7, 7), 0);
-    pin.health = -1; //infinite health
-    pin.rotation_incr = 7.5;
-    buildings.emplace_back(pin);
-}
-
-void init_enemies()
-{
-
-    auto positions = enemy_positions();
-    srand(time(nullptr));
-    for (int i = 0; i < 12; i++)
-    {
-        auto index = rand() % positions.size();
-        auto pos = positions[index];
-        positions.erase(positions.begin() + index);
-
-        int model = 3 + i % 3; // 3 -> EAGLE, 4 -> RAVEN, 5 -> OWL
-
-        auto e = Enemy(model, pos.position, gt->get_scaled(model, 4), pos.speed, pos.direction);
-        e.moving = true;
-        enemies.emplace_back(e);
+    for(i=0; i<4; i++) {
+        ponto_novo[i] = matriz_gl[0][i] * p.x +
+                        matriz_gl[1][i] * p.y +
+                        matriz_gl[2][i] * p.z +
+                        matriz_gl[3][i];
     }
-    alive_enemies = enemies.size();
+    out.x = ponto_novo[0];
+    out.y = ponto_novo[1];
+    out.z = ponto_novo[2];
 }
 
-void init_game_objects()
+// **********************************************************************
+//
+// **********************************************************************
+void InicializaCidade(int QtdX, int QtdZ)
 {
-    init_buildings();
-    init_enemies();
-    player = new Player(PLAYER, Point(50, FLOOR_H + 20, -0.8), gt->get_scaled(PLAYER, 4));
-    player->rotation_incr = 10;
+    for (int i=0;i<QtdZ;i++)
+        for (int j=0;j<QtdX;j++)
+            Cidade[i][j].tipo = VAZIO;
 }
 
-void explode_here(Point position)
+
+// **********************************************************************
+//  void init(void)
+//    Inicializa os parametros globais de OpenGL
+// **********************************************************************
+void init(void)
 {
-    auto ex = Explosion(position);
-    ex.scale = gt->get_scaled(EXPLOSION, 5);
-    explosions.emplace_back(ex);
-}
-
-//remove inactive enemies and projectiles
-void clean()
-{
-    auto end = remove_if(
-            enemies.begin(),
-            enemies.end(),
-            [](Enemy const &e) {
-                return !e.active;
-            });
-    enemies.erase(end, enemies.end());
-
-    auto itr = projectiles.cbegin();
-
-    while (itr != projectiles.cend())
-    {
-        auto curr = itr++;
-        if (!curr->active)
-        {
-            projectiles.erase(curr);
-        }
-    }
-}
-
-void handle_collisions()
-{
-    for (auto &p : projectiles)
-    {
-        Point collision_position;
-        if (p.model == ENEMY_AMMO && p.active)
-        {
-            if (player->collided(p))
-            {
-                p.active = false;
-                explode_here(p.position);
-            }
-        }
-
-        if (p.model == PLAYER_AMMO && p.active)
-        {
-            for (auto &enemy : enemies)
-            {
-                if (enemy.active && enemy.collided(p, collision_position))
-                {
-                    enemy.active = false;
-                    p.active = false;
-                    alive_enemies--;
-                    explode_here(collision_position);
-                    break;
-                }
-            }
-        }
-        if (p.active)
-        {
-            for (auto &build : buildings)
-            {
-                if (build.active && build.collided(p, collision_position))
-                {
-                    p.active = false;
-                    if (!build.active)
-                    {//died
-                        active_buildings--;
-                    }
-                    explode_here(collision_position);
-                    break;
-                }
-            }
-        }
-    }
-    clean();
-}
-
-void start_end_animation()
-{
-    if (!game_over)
-    {
-        player->position = Point((GLfloat) ORTHO_X / 2, (GLfloat) ORTHO_Y / 2);
-        if (win)
-        {
-            msg_end = new Message(MSG_WIN,
-                                  Point((GLfloat) ORTHO_X / 2, (GLfloat) ORTHO_Y / 4),
-                                  gt->get_scaled(MSG_WIN, 4.0));
-            player->rotation = 0;
-        }
-        else
-        {
-            for (auto &build : buildings)
-            {
-                build.health = 0;
-            }
-            msg_end = new Message(MSG_LOSE,
-                                  Point((GLfloat) ORTHO_X / 2, (GLfloat) ORTHO_Y / 4),
-                                  gt->get_scaled(MSG_LOSE, 4.0));
-            player->scale += gt->get_scaled(player->model, 5);
-            player->rotation = -45;
-        }
-        game_over = true;
-    }
-}
-
-void win_animation(GLfloat t)
-{
-    end_animation_time += t;
-    if (end_animation_time < total_animation_time)
-    {
-        player->scale += gt->get_scaled(player->model, 0.5);
-    }
-}
-
-void lose_animation(GLfloat t)
-{
-    end_animation_time += t;
-    if (end_animation_time < total_animation_time / 4)
-    {
-        player->scale -= gt->get_scaled(player->model, 0.2);
-    }
-    srand(time(nullptr));
-    for (int i = 0; i < 50; i++)
-    {
-        explode_here(Point(10.0f + rand() % ORTHO_X, rand() % ORTHO_Y));
-    }
-}
-
-bool win_criteria()
-{
-    if (alive_enemies == 0)
-    {
-        debug = false;
-        player->aiming = false;
-        win = true;
-        start_end_animation();
-        return true;
-    }
-    return false;
-}
-
-bool lose_criteria()
-{
-    if (active_buildings == 0 || player->health <= 0)
-    {
-        debug = false;
-        player->aiming = false;
-        win = false;
-        start_end_animation();
-        return true;
-    }
-    return false;
-}
-
-void init()
-{
-    //allow transparency
+    defineCorBg(ForestGreen);
+    //transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    init_textures();
-    init_game_objects();
-    // Define a cor do fundo da tela (AZUL)
-    glClearColor(0.1f, 0.1f, 0.5f, 1.0f);
 
-}
-
-void handle_enemy_shoot(GLfloat dt, Enemy &enemy)
-{
-    Projectile p;
-    auto s = enemy.shoot(1.0f / 30, (*gt), p);
-    if (s)
+    glShadeModel(GL_SMOOTH);
+    //glShadeModel(GL_FLAT);
+    glColorMaterial ( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
+    glEnable(GL_DEPTH_TEST);
+    glEnable (GL_CULL_FACE);
+    
+    if (ModoDeExibicao) // Faces Preenchidas??
     {
-        projectiles.emplace_back(p);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
+    else
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
+    glEnable(GL_NORMALIZE);
+    
+    Curva1[0] = Point (-6,0,1);
+    Curva1[1] = Point (0,10,1);
+    Curva1[2] = Point (6,0,1);
+    
+    srand((unsigned int)time(NULL));
+    
+    QtdX = 100;
+    QtdZ = 100;
+
+    
+    InicializaCidade(QtdX, QtdZ);
+    
 }
 
+// **********************************************************************
+//
+// **********************************************************************
 void animate()
 {
     double dt;
     dt = T.get_delta_t();
-    accum_delta_t += dt;
-    tempo_total += dt;
-    n_frames++;
+    AccumDeltaT += dt;
+    TempoTotal += dt;
+    nFrames++;
 
-    if (accum_delta_t > 1.0 / 30) // fixa a atualizacao da tela em 30
+    if (AccumDeltaT > 1.0/30) // fixa a atualiza��o da tela em 30
     {
-        accum_delta_t = 0;
-        dt_shoot += 1.0 / 30;
-
-        if (lose_criteria())
-        {
-            lose_animation(1.0f / 30);
-        }
-        else if (win_criteria())
-        {
-            win_animation(1.0f / 30);
-        }
-        else
-        {
-            handle_collisions();
-        }
-        for (auto &enemy : enemies)
-        {
-            if (enemy.active)
-            {
-                if (enemy.moving)
-                {
-                    enemy.walk_mru(1.0 / 30);
-                }
-                handle_enemy_shoot(1.0 / 30, enemy);
-            }
-        }
-        for (auto &proj : projectiles)
-        {
-            if (proj.moving && proj.active)
-            {
-                proj.oblique_throw(1.0 / 30);
-            }
-        }
-
-        if (player->moving)
-        {
-            player->walk_mru(1.0 / 30);
-        }
-
+        AccumDeltaT = 0;
         glutPostRedisplay();
     }
-    if (dt_shoot > 8.0 / 30 && shooted)
+    if (TempoTotal > 5.0)
     {
-        projectiles.emplace_back(player->shoot((*gt)));
-        shooted = false;
-        dt_shoot = 0;
-    }
-    if (tempo_total > 5.0)
-    {/*
-        cout << "Tempo Acumulado: " << tempo_total << " segundos. ";
-        cout << "Nros de Frames sem desenho: " << n_frames << endl;
-        cout << "FPS(sem desenho): " << n_frames / tempo_total << endl;
-        */tempo_total = 0;
-        n_frames = 0;
+        cout << "Tempo Acumulado: "  << TempoTotal << " segundos. " ;
+        cout << "Nros de Frames sem desenho: " << nFrames << endl;
+        cout << "FPS(sem desenho): " << nFrames/TempoTotal << endl;
+        TempoTotal = 0;
+        nFrames = 0;
     }
 }
 
-/**
- * trata o redimensionamento da janela OpenGL
- * @param w - largura
- * @param h - altura
- */
-void reshape(int w, int h)
+// **********************************************************************
+Point CalculaBezier3(Point PC[], double t)
 {
-    // Reset the coordinate system before modifying
+    Point P;
+    double UmMenosT = 1-t;
+    
+    P =  PC[0] * UmMenosT * UmMenosT + PC[1] * 2 * UmMenosT * t + PC[2] * t*t;
+    //P.z = 5;
+    return P;
+}
+// **********************************************************************
+void TracaBezier3Pontos()
+{
+    double t=0.0;
+    double DeltaT = 1.0/10;
+    Point P;
+    //cout << "DeltaT: " << DeltaT << endl;
+    glBegin(GL_LINE_STRIP);
+    
+    while(t<1.0)
+    {
+        P = CalculaBezier3(Curva1, t);
+        glVertex3f(P.x, P.y, P.z);
+        t += DeltaT;
+       // P.imprime(); cout << endl;
+    }
+    P = CalculaBezier3(Curva1, 1.0); // faz o fechamento da curva
+    glVertex3f(P.x, P.y, P.z);
+    glEnd();
+}
+// **********************************************************************
+//  void DesenhaCubo()
+//
+//
+// **********************************************************************
+void DesenhaCubo()
+{
+    glBegin ( GL_QUADS );
+    // Front Face
+    glNormal3f(0,0,1);
+    glVertex3f(-1.0f, -1.0f,  1.0f);
+    glVertex3f( 1.0f, -1.0f,  1.0f);
+    glVertex3f( 1.0f,  1.0f,  1.0f);
+    glVertex3f(-1.0f,  1.0f,  1.0f);
+    // Back Face
+    glNormal3f(0,0,-1);
+    glVertex3f(-1.0f, -1.0f, -1.0f);
+    glVertex3f(-1.0f,  1.0f, -1.0f);
+    glVertex3f( 1.0f,  1.0f, -1.0f);
+    glVertex3f( 1.0f, -1.0f, -1.0f);
+    // Top Face
+    glNormal3f(0,1,0);
+    glVertex3f(-1.0f,  1.0f, -1.0f);
+    glVertex3f(-1.0f,  1.0f,  1.0f);
+    glVertex3f( 1.0f,  1.0f,  1.0f);
+    glVertex3f( 1.0f,  1.0f, -1.0f);
+    // Bottom Face
+    glNormal3f(0,-1,0);
+    glVertex3f(-1.0f, -1.0f, -1.0f);
+    glVertex3f( 1.0f, -1.0f, -1.0f);
+    glVertex3f( 1.0f, -1.0f,  1.0f);
+    glVertex3f(-1.0f, -1.0f,  1.0f);
+    // Right face
+    glNormal3f(1,0,0);
+    glVertex3f( 1.0f, -1.0f, -1.0f);
+    glVertex3f( 1.0f,  1.0f, -1.0f);
+    glVertex3f( 1.0f,  1.0f,  1.0f);
+    glVertex3f( 1.0f, -1.0f,  1.0f);
+    // Left Face
+    glNormal3f(-1,0,0);
+    glVertex3f(-1.0f, -1.0f, -1.0f);
+    glVertex3f(-1.0f, -1.0f,  1.0f);
+    glVertex3f(-1.0f,  1.0f,  1.0f);
+    glVertex3f(-1.0f,  1.0f, -1.0f);
+    glEnd();
+}
+
+// **********************************************************************
+//  Desenha um pr�dio no meio de uam c�lula
+// **********************************************************************
+void DesenhaPredio(float altura)
+{
+    glPushMatrix();
+       // glTranslatef(0, -1, 0);
+        glScalef(0.2, altura, 0.2);
+        glTranslatef(0, 1, 0);
+        DesenhaCubo();
+    glPopMatrix();
+    
+}
+// **********************************************************************
+// void DesenhaLadrilho(int corBorda, int corDentro)
+// Desenha uma c�lula do piso.
+// Eh possivel definir a cor da borda e do interior do piso
+// O ladrilho tem largula 1, centro no (0,0,0) e est� sobre o plano XZ
+// **********************************************************************
+void DesenhaLadrilho(int corBorda, int corDentro)
+{
+    
+    defineCor(corBorda); // desenha QUAD preenchido
+    glBegin ( GL_QUADS );
+        glNormal3f(0,1,0);
+        glTexCoord2f(0.0f, 1.0f);
+        glVertex3f(-0.5f,  0.0f, -0.5f);
+        glTexCoord2f(0.0f, 0.0f);
+        glVertex3f(-0.5f,  0.0f,  0.5f);
+        glTexCoord2f(1.0f, 0.0f);
+        glVertex3f( 0.5f,  0.0f,  0.5f);
+        glTexCoord2f(1.0f, 1.0f);
+        glVertex3f( 0.5f,  0.0f, -0.5f);
+    glEnd();
+    
+    defineCor(corDentro);
+    glBegin ( GL_LINE_STRIP ); // desenha borda do ladrilho
+        glNormal3f(0,1,0);
+        glVertex3f(-0.5f,  0.0f, -0.5f);
+        glVertex3f(-0.5f,  0.0f,  0.5f);
+        glVertex3f( 0.5f,  0.0f,  0.5f);
+        glVertex3f( 0.5f,  0.0f, -0.5f);
+    glEnd();
+
+}
+
+// **********************************************************************
+// DesenhaCidade(int nLinhas, int nColunas)
+// QtdX: nro de c�lulas em X
+// QtdZ: nro de c�lulas em Z
+// Desenha elementos que compiem a cidade
+// **********************************************************************
+void DesenhaCidade(int QtdX, int QtdZ)
+{
+
+    glPushMatrix();
+        glTranslatef(0, 0, 0);
+        DesenhaLadrilho(Red, Black);
+        defineCor(Yellow);
+        DesenhaPredio(2);
+    glPopMatrix();
+    glPushMatrix();
+        glTranslatef(-1, 0, 0);
+        DesenhaLadrilho(Gray, Black);
+        defineCor(Green);
+        DesenhaPredio(1.2);
+    glPopMatrix();
+    glPushMatrix();
+    glTranslatef(1, 0, 0);
+    DesenhaLadrilho(MediumSpringGreen, Black);
+    defineCor(Green);
+    DesenhaPredio(3);
+    glPopMatrix();
+}
+
+
+// **********************************************************************
+//  void DefineLuz(void)
+// **********************************************************************
+void DefineLuz(void)
+{
+  // Define cores para um objeto dourado
+  GLfloat LuzAmbiente[]   = {0.4, 0.4, 0.4f } ;
+  GLfloat LuzDifusa[]   = {0.7, 0.7, 0.7};
+  GLfloat LuzEspecular[] = {0.9f, 0.9f, 0.9 };
+  GLfloat PosicaoLuz0[]  = {0.0f, 3.0f, 5.0f };  // Posi��o da Luz
+  GLfloat Especularidade[] = {1.0f, 1.0f, 1.0f};
+
+   // ****************  Fonte de Luz 0
+
+ glEnable ( GL_COLOR_MATERIAL );
+
+   // Habilita o uso de ilumina��o
+  glEnable(GL_LIGHTING);
+
+  // Ativa o uso da luz ambiente
+  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, LuzAmbiente);
+  // Define os parametros da luz n�mero Zero
+  glLightfv(GL_LIGHT0, GL_AMBIENT, LuzAmbiente);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, LuzDifusa  );
+  glLightfv(GL_LIGHT0, GL_SPECULAR, LuzEspecular  );
+  glLightfv(GL_LIGHT0, GL_POSITION, PosicaoLuz0 );
+  glEnable(GL_LIGHT0);
+
+  // Ativa o "Color Tracking"
+  glEnable(GL_COLOR_MATERIAL);
+
+  // Define a reflectancia do material
+  glMaterialfv(GL_FRONT,GL_SPECULAR, Especularidade);
+
+  // Define a concentra��oo do brilho.
+  // Quanto maior o valor do Segundo parametro, mais
+  // concentrado ser� o brilho. (Valores v�lidos: de 0 a 128)
+  glMateriali(GL_FRONT,GL_SHININESS,51);
+
+}
+
+// **********************************************************************
+//  void PosicUser()
+//
+//
+// **********************************************************************
+void PosicUser()
+{
+
+    // Define os par�metros da proje��o Perspectiva
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // Define a area a ser ocupada pela area OpenGL dentro da Janela
-    //glViewport(0, 0, w, h);
-    glViewport(0, h*AlturaViewportDeMensagens, w, h-h*AlturaViewportDeMensagens);
-    // Define os limites logicos da area OpenGL dentro da Janela
-    glOrtho(0, ORTHO_X,
-            0, ORTHO_Y,
-            -1, 1);
+    // Define o volume de visualiza��o sempre a partir da posicao do
+    // observador
+    if (ModoDeProjecao == 0)
+        glOrtho(-10, 10, -10, 10, 0, 20); // Projecao paralela Orthografica
+    else gluPerspective(90,AspectRatio,0.01,1500); // Projecao perspectiva
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-}
+    
 
-void draw_game_over()
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0, 5, 8,   // Posi��o do Observador
+              0,0,0,     // Posi��o do Alvo
+              0.0f,1.0f,0.0f); // UP
+
+
+}
+// **********************************************************************
+//  void reshape( int w, int h )
+//		trata o redimensionamento da janela OpenGL
+//
+// **********************************************************************
+void reshape( int w, int h )
 {
-    player->draw((*gt), debug);
-    if (end_animation_time >= total_animation_time)
-    {
-        msg_end->draw(*gt, debug);
-    }
-}
 
-void display(void)
+	// Evita divis�o por zero, no caso de uam janela com largura 0.
+	if(h == 0) h = 1;
+    // Ajusta a rela��o entre largura e altura para evitar distor��o na imagem.
+    // Veja fun��o "PosicUser".
+	AspectRatio = 1.0f * w / h;
+	// Reset the coordinate system before modifying
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	// Seta a viewport para ocupar toda a janela
+    //glViewport(0, 0, w, h);
+    glViewport(0, h * messages_panel, w, h - h * messages_panel);
+
+    //cout << "Largura" << w << endl;
+
+	PosicUser();
+
+}
+// **********************************************************************
+//
+// **********************************************************************
+void printString(string s, int posX, int posY, int cor)
 {
-    // Limpa a tela coma cor de fundo
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    display_background(bg);
-    player->display_health((*gt));
-
-    if (debug)
+    defineCor(cor);
+    
+    glRasterPos3i(posX, posY, 0); //define posicao na tela
+    for (int i = 0; i < s.length(); i++)
     {
-        draw_floor();
+//GLUT_BITMAP_HELVETICA_10,
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, s[i]);
     }
-
-    // display buildings
-    for (auto &building : buildings)
-    {
-        building.draw((*gt), debug);
-    }
-
-    for (auto &enemy : enemies)
-    {
-        enemy.draw((*gt), debug);
-    }
-
-    player->draw((*gt), debug);
-
-    for (auto &proj : projectiles)
-    {
-        proj.draw((*gt), debug);
-    }
-
-    for (auto &explosion : explosions)
-    {
-        explosion.draw((*gt));
-    }
-
-    if (game_over)
-    {
-        draw_game_over();
-    }
-
-    glutSwapBuffers();
+    
 }
-
-/**
- * Informa quantos frames se passaram no tempo informado.
- * @param tempo - Tempo em segundos
- */
-void conta_tempo(double tempo)
+// **********************************************************************
+//
+// **********************************************************************
+void DesenhaEm2D()
 {
-    Temporizador T;
-
-    unsigned long cont = 0;
-    cout << "Inicio contagem de " << tempo << "segundos ..." << flush;
-    while (true)
+    int ativarLuz = false;
+    if (glIsEnabled(GL_LIGHTING))
     {
-        tempo -= T.get_delta_t();
-        cont++;
-        if (tempo <= 0.0)
-        {
-            cout << "fim! - Passaram-se " << cont << " frames." << endl;
-            break;
-        }
+        glDisable(GL_LIGHTING);
+        ativarLuz = true;
     }
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    // Salva o tamanho da janela
+    int w = glutGet(GLUT_WINDOW_WIDTH);
+    int h = glutGet(GLUT_WINDOW_HEIGHT);
+    
+    // Define a area a ser ocupada pela area OpenGL dentro da Janela
+    glViewport(0, 0, w, h * messages_panel); // a janela de mensagens fica na parte de baixo da janela
+
+    // Define os limites logicos da area OpenGL dentro da Janela
+    glOrtho(0,10, 0,10, 0,1);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // Desenha linha que Divide as �reas 2D e 3D
+    defineCor(Yellow);
+    glLineWidth(5);
+    glBegin(GL_LINES);
+        glVertex2f(0,10);
+        glVertex2f(10,10);
+    glEnd();
+    
+    printString("Amarelo", 0, 0, Yellow);
+    printString("Vermelho", 4, 2, Red);
+    printString("Verde", 8, 4, Green);
+
+    // Resataura os par�metro que foram alterados
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glViewport(0, h * messages_panel, w, h - h * messages_panel);
+
+    if (ativarLuz)
+        glEnable(GL_LIGHTING);
 
 }
 
-void keyboard(unsigned char key, int x, int y)
+// **********************************************************************
+//  void display( void )
+//
+//
+// **********************************************************************
+void display( void )
 {
-    if (win_criteria() || lose_criteria())
-    {
-        if (key == 27)
-        {
-            delete gt;
-            exit(0);
-        }
-    }
-    else
-    {
-        switch (key)
-        {
-            case 27:       //esc
-                delete gt;
-                exit(0);
-            case '1':
-                debug = !debug;
-                break;
-            case '2':
-                player->aiming = !player->aiming;
-                break;
-            case 't':
-                conta_tempo(3);
-                break;
-            case ' ':
-                shooted = true;
-                break;
-            case 'a':
-                player->walk_l();
-                break;
-            case 'd':
-                player->walk_r();
-                break;
-            case 'q': //rotate left
-                player->rotate_l();
-                break;
-            case 'e':
-                player->rotate_r();
-                break;
-            case 'w':
-                player->increase_str();
-                break;
-            case 's':
-                player->decrease_str();
-                break;
-            default:
-                break;
-        }
-    }
+
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	DefineLuz();
+
+	PosicUser();
+    glLineWidth(2);
+	
+	glMatrixMode(GL_MODELVIEW);
+
+    glColor3f(1,1,1);
+    TracaBezier3Pontos();
+    
+    DesenhaCidade(QtdX,QtdZ);
+    DesenhaEm2D();
+
+	glutSwapBuffers();
 }
 
-void arrow_keys(int a_keys, int x, int y)
+
+// **********************************************************************
+//  void keyboard ( unsigned char key, int x, int y )
+//
+//
+// **********************************************************************
+void keyboard ( unsigned char key, int x, int y )
 {
-    switch (a_keys)
-    {
-        case GLUT_KEY_UP:
-            //glutFullScreen(); // Vai para Full Screen
+	switch ( key ) 
+	{
+    case 27:        // Termina o programa qdo
+      exit ( 0 );   // a tecla ESC for pressionada
+      break;        
+    case 'p':
+            ModoDeProjecao = !ModoDeProjecao;
+            glutPostRedisplay();
             break;
-        case GLUT_KEY_DOWN:
-            // Reposiciona a janela
-            //glutPositionWindow(50, 50);
-            //glutReshapeWindow(700, 500);
+    case 'e':
+            ModoDeExibicao = !ModoDeExibicao;
+            init();
+            glutPostRedisplay();
             break;
-        case GLUT_KEY_RIGHT:
-            //player->walk_r();
-            break;
-        case GLUT_KEY_LEFT:
-            //player->walk_l();
-            break;
-        default:
-            break;
-    }
+    default:
+            cout << key;
+    break;
+  }
 }
 
-int main(int argc, char** argv)
+// **********************************************************************
+//  void arrow_keys ( int a_keys, int x, int y )  
+//
+//
+// **********************************************************************
+void arrow_keys ( int a_keys, int x, int y )  
 {
-    cout << "Programa OpenGL" << endl;
-
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB);
-    glutInitWindowPosition(0, 0);
-
-    glutInitWindowSize(1200, 650);
-
-    glutCreateWindow("Pine Shooter");
-
-    init();
-
-    glutDisplayFunc(display);
-
-    glutIdleFunc(animate);
-
-    glutReshapeFunc(reshape);
-
-    glutKeyboardFunc(keyboard);
-
-    glutSpecialFunc(arrow_keys);
-
-    glutMainLoop();
-
-    delete gt;
-    return 0;
+	switch ( a_keys ) 
+	{
+		case GLUT_KEY_UP:       // When Up Arrow Is Pressed...
+			glutFullScreen ( ); // Go Into Full Screen Mode
+			break;
+	    case GLUT_KEY_DOWN:     // When Down Arrow Is Pressed...
+			glutInitWindowSize  ( 700, 500 ); 
+			break;
+		default:
+			break;
+	}
 }
+
+// **********************************************************************
+//  void main ( int argc, char** argv )
+//
+//
+// **********************************************************************
+int main ( int argc, char** argv )   
+{
+	glutInit            ( &argc, argv ); 
+	glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB );
+	glutInitWindowPosition (0,0);
+	glutInitWindowSize  ( 700, 700 );
+	glutCreateWindow    ( "Computacao Grafica - Exemplo Basico 3D" ); 
+		
+	init ();
+    //system("pwd");
+	
+	glutDisplayFunc ( display );  
+	glutReshapeFunc ( reshape );
+	glutKeyboardFunc ( keyboard );
+	glutSpecialFunc ( arrow_keys );
+	glutIdleFunc ( animate );
+
+	glutMainLoop ( );          
+	return 0; 
+}
+
+
+

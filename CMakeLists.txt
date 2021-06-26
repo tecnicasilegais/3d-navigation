@@ -9,5 +9,6 @@ file(GLOB IMAGE "image_libs/*")
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "headers/*.h")
 
-add_executable(3D_Nav ${SOURCES} ${IMAGE} ${HEADERS} main.cpp src/Engine.cpp headers/Engine.h)
+
+add_executable(3D_Nav ${SOURCES} ${IMAGE} ${HEADERS} main.cpp)
 target_link_libraries(3D_Nav -lglut -lGLU -lGL -lSOIL)
