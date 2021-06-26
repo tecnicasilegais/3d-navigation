@@ -62,6 +62,7 @@ list<Projectile> projectiles;
 
 //TODO projectile
 Player* player;
+GLfloat AlturaViewportDeMensagens = 0.2; // percentual em relacao � altura da tela
 
 void init_textures()
 {
@@ -287,7 +288,7 @@ void init()
     init_textures();
     init_game_objects();
     // Define a cor do fundo da tela (AZUL)
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.1f, 0.1f, 0.5f, 1.0f);
 
 }
 
@@ -379,7 +380,8 @@ void reshape(int w, int h)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     // Define a area a ser ocupada pela area OpenGL dentro da Janela
-    glViewport(0, 0, w, h);
+    //glViewport(0, 0, w, h);
+    glViewport(0, h*AlturaViewportDeMensagens, w, h-h*AlturaViewportDeMensagens);
     // Define os limites logicos da area OpenGL dentro da Janela
     glOrtho(0, ORTHO_X,
             0, ORTHO_Y,
