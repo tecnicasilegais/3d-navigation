@@ -16,6 +16,7 @@
 using namespace std;
 
 
+#include <GL/glew.h>
 #ifdef WIN32
 #include <windows.h>
 #include <glut.h>
@@ -33,18 +34,73 @@ using namespace std;
 
 #include <iostream>
 #include "headers/Point.h"
-#include "headers/BoundingBox.h"
+#include "BoundingBox.h"
 #include "headers/Temporizador.h"
 #include "headers/ListaDeCoresRGB.h"
+#include "headers/Engine3d.h"
+#include <headers/shader.h>
+#include <glm/glm.hpp>
+#include "glm/gtc/matrix_transform.hpp"
+using namespace glm;
 
 Temporizador T;
 double AccumDeltaT=0;
-
+double nFrames=0;
+double TempoTotal=0;
 
 GLfloat AspectRatio;
 GLfloat messages_panel = 0.2; //msg panel h %
-double nFrames=0;
-double TempoTotal=0;
+
+GameTextures* gt;
+GameObject gameFloor[30][30]; //fixed at map size
+Shader* skyboxShader;
+int sizeX = 30, sizeZ = 30;
+int curr_view = View::ThirdPerson;
+float skyboxVertices[] = {
+        // positions
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+        1.0f,  1.0f, -1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+        1.0f, -1.0f,  1.0f
+};
+
 
 /*
 // Controle do modo de projecao
@@ -52,22 +108,8 @@ double TempoTotal=0;
 // A funcao "PosicUser" utiliza esta variavel. O valor dela eh alterado
 // pela tecla 'p'*/
 
-int ModoDeProjecao = 1;
-
-/*
-// Controle do modo de projecao
-// 0: Wireframe; 1: Faces preenchidas
-// A funcao "Init" utiliza esta variavel. O valor dela eh alterado
-// pela tecla 'w'*/
-int ModoDeExibicao = 1;
-
 
 Point Curva1[3];
-
-// Qtd de ladrilhos do piso. Inicialzada na INIT
-int QtdX;
-int QtdZ;
-
 
 // Representa o conteudo de uma celula do piso
 class Elemento{
@@ -84,88 +126,88 @@ public:
 #define RUA 20
 #define COMBUSTIVEL 30
 
-// Matriz que armazena informacoes sobre o que existe na cidade
-Elemento Cidade[100][100];
-// ***********************************************
-//  void calcula_ponto(Point p, Point &out)
-//
-//  Esta fun��o calcula as coordenadas
-//  de um Point no sistema de refer�ncia do
-//  universo (SRU), ou seja, aplica as rota��es,
-//  escalas e transla��es a um Point no sistema
-//  de refer�ncia do objeto SRO.
-//  Para maiores detalhes, veja a p�gina
-//  https://www.inf.pucrs.br/pinho/CG/Aulas/OpenGL/Interseccao/ExerciciosDeInterseccao.html
-// ***********************************************
-void CalculaPonto(Point p, Point &out) {
-
-    GLfloat ponto_novo[4];
-    GLfloat matriz_gl[4][4];
-    int  i;
-
-    glGetFloatv(GL_MODELVIEW_MATRIX,&matriz_gl[0][0]);
-
-    for(i=0; i<4; i++) {
-        ponto_novo[i] = matriz_gl[0][i] * p.x +
-                        matriz_gl[1][i] * p.y +
-                        matriz_gl[2][i] * p.z +
-                        matriz_gl[3][i];
-    }
-    out.x = ponto_novo[0];
-    out.y = ponto_novo[1];
-    out.z = ponto_novo[2];
-}
-
-// **********************************************************************
-//
-// **********************************************************************
-void InicializaCidade(int QtdX, int QtdZ)
+void init_city()
 {
-    for (int i=0;i<QtdZ;i++)
-        for (int j=0;j<QtdX;j++)
-            Cidade[i][j].tipo = VAZIO;
+    ifstream input;
+    input.open("data/map.txt", ios::in);
+    if(!input)
+    {
+        cout << "Error opening map file ." << endl;
+        exit(1);
+    }
+    cout << "Loading map configs ... " << endl;
+
+    input >> sizeX >> sizeZ;
+
+    Point playerpos; //todo put inside object
+    input >> playerpos.x >> playerpos.y >> playerpos.z;
+
+    int count_fuel;
+    input >> count_fuel;
+
+    for(int i=0; i<count_fuel; i++)
+    {
+        input >> playerpos.x >> playerpos.z; //todo create fuels
+    }
+
+    for (int i=0;i<sizeX;i++)
+        for (int j=0; j < sizeZ; j++)
+            input >> gameFloor[j][i].model;
+
+}
+unsigned int skyboxVAO, skyboxVBO;
+
+void init_skybox()
+{
+
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    skyboxShader = new Shader("skybox.vs", "skybox.fs");
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
 }
 
-
-// **********************************************************************
-//  void init(void)
-//    Inicializa os parametros globais de OpenGL
-// **********************************************************************
 void init(void)
 {
-    defineCorBg(ForestGreen);
-    //transparency
+    defineCorBg(MediumAquamarine);
+    /*//transparency
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);*/
 
     glShadeModel(GL_SMOOTH);
     //glShadeModel(GL_FLAT);
     glColorMaterial ( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
     glEnable(GL_DEPTH_TEST);
     glEnable (GL_CULL_FACE);
-    
-    if (ModoDeExibicao) // Faces Preenchidas??
-    {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    }
-    else
-    {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
     glEnable(GL_NORMALIZE);
-    
+
     Curva1[0] = Point (-6,0,1);
     Curva1[1] = Point (0,10,1);
     Curva1[2] = Point (6,0,1);
     
     srand((unsigned int)time(NULL));
-    
-    QtdX = 100;
-    QtdZ = 100;
 
-    
-    InicializaCidade(QtdX, QtdZ);
-    
+    init_skybox();
+
+    gt = new GameTextures();
+
+    skyboxShader->use();
+    skyboxShader->setInt("skybox", 0);
+
+
+    init_city();
+
+
 }
 
 // **********************************************************************
@@ -225,96 +267,16 @@ void TracaBezier3Pontos()
     glEnd();
 }
 // **********************************************************************
-//  void DesenhaCubo()
-//
-//
-// **********************************************************************
-void DesenhaCubo()
-{
-    glBegin ( GL_QUADS );
-    // Front Face
-    glNormal3f(0,0,1);
-    glVertex3f(-1.0f, -1.0f,  1.0f);
-    glVertex3f( 1.0f, -1.0f,  1.0f);
-    glVertex3f( 1.0f,  1.0f,  1.0f);
-    glVertex3f(-1.0f,  1.0f,  1.0f);
-    // Back Face
-    glNormal3f(0,0,-1);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f,  1.0f, -1.0f);
-    glVertex3f( 1.0f,  1.0f, -1.0f);
-    glVertex3f( 1.0f, -1.0f, -1.0f);
-    // Top Face
-    glNormal3f(0,1,0);
-    glVertex3f(-1.0f,  1.0f, -1.0f);
-    glVertex3f(-1.0f,  1.0f,  1.0f);
-    glVertex3f( 1.0f,  1.0f,  1.0f);
-    glVertex3f( 1.0f,  1.0f, -1.0f);
-    // Bottom Face
-    glNormal3f(0,-1,0);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f( 1.0f, -1.0f, -1.0f);
-    glVertex3f( 1.0f, -1.0f,  1.0f);
-    glVertex3f(-1.0f, -1.0f,  1.0f);
-    // Right face
-    glNormal3f(1,0,0);
-    glVertex3f( 1.0f, -1.0f, -1.0f);
-    glVertex3f( 1.0f,  1.0f, -1.0f);
-    glVertex3f( 1.0f,  1.0f,  1.0f);
-    glVertex3f( 1.0f, -1.0f,  1.0f);
-    // Left Face
-    glNormal3f(-1,0,0);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, -1.0f,  1.0f);
-    glVertex3f(-1.0f,  1.0f,  1.0f);
-    glVertex3f(-1.0f,  1.0f, -1.0f);
-    glEnd();
-}
-
-// **********************************************************************
 //  Desenha um pr�dio no meio de uam c�lula
 // **********************************************************************
 void DesenhaPredio(float altura)
 {
     glPushMatrix();
-       // glTranslatef(0, -1, 0);
         glScalef(0.2, altura, 0.2);
         glTranslatef(0, 1, 0);
-        DesenhaCubo();
+        draw_cube();
     glPopMatrix();
     
-}
-// **********************************************************************
-// void DesenhaLadrilho(int corBorda, int corDentro)
-// Desenha uma c�lula do piso.
-// Eh possivel definir a cor da borda e do interior do piso
-// O ladrilho tem largula 1, centro no (0,0,0) e est� sobre o plano XZ
-// **********************************************************************
-void DesenhaLadrilho(int corBorda, int corDentro)
-{
-    
-    defineCor(corBorda); // desenha QUAD preenchido
-    glBegin ( GL_QUADS );
-        glNormal3f(0,1,0);
-        glTexCoord2f(0.0f, 1.0f);
-        glVertex3f(-0.5f,  0.0f, -0.5f);
-        glTexCoord2f(0.0f, 0.0f);
-        glVertex3f(-0.5f,  0.0f,  0.5f);
-        glTexCoord2f(1.0f, 0.0f);
-        glVertex3f( 0.5f,  0.0f,  0.5f);
-        glTexCoord2f(1.0f, 1.0f);
-        glVertex3f( 0.5f,  0.0f, -0.5f);
-    glEnd();
-    
-    defineCor(corDentro);
-    glBegin ( GL_LINE_STRIP ); // desenha borda do ladrilho
-        glNormal3f(0,1,0);
-        glVertex3f(-0.5f,  0.0f, -0.5f);
-        glVertex3f(-0.5f,  0.0f,  0.5f);
-        glVertex3f( 0.5f,  0.0f,  0.5f);
-        glVertex3f( 0.5f,  0.0f, -0.5f);
-    glEnd();
-
 }
 
 // **********************************************************************
@@ -323,105 +285,52 @@ void DesenhaLadrilho(int corBorda, int corDentro)
 // QtdZ: nro de c�lulas em Z
 // Desenha elementos que compiem a cidade
 // **********************************************************************
-void DesenhaCidade(int QtdX, int QtdZ)
+void DesenhaCidade()
 {
-
-    glPushMatrix();
-        glTranslatef(0, 0, 0);
-        DesenhaLadrilho(Red, Black);
-        defineCor(Yellow);
-        DesenhaPredio(2);
-    glPopMatrix();
-    glPushMatrix();
-        glTranslatef(-1, 0, 0);
-        DesenhaLadrilho(Gray, Black);
-        defineCor(Green);
-        DesenhaPredio(1.2);
-    glPopMatrix();
-    glPushMatrix();
-    glTranslatef(1, 0, 0);
-    DesenhaLadrilho(MediumSpringGreen, Black);
-    defineCor(Green);
-    DesenhaPredio(3);
-    glPopMatrix();
+    for(int i=0; i<sizeX; i++)
+    {
+        for(int j=0; j < sizeZ; j++)
+        {
+            glPushMatrix();
+                auto gf = &gameFloor[i][j];
+                glTranslatef(i, 0, j);
+                gt->draw_tex_floor(gf->model);
+            glPopMatrix();
+        }
+    }
 }
-
-
-// **********************************************************************
-//  void DefineLuz(void)
-// **********************************************************************
-void DefineLuz(void)
-{
-  // Define cores para um objeto dourado
-  GLfloat LuzAmbiente[]   = {0.4, 0.4, 0.4f } ;
-  GLfloat LuzDifusa[]   = {0.7, 0.7, 0.7};
-  GLfloat LuzEspecular[] = {0.9f, 0.9f, 0.9 };
-  GLfloat PosicaoLuz0[]  = {0.0f, 3.0f, 5.0f };  // Posi��o da Luz
-  GLfloat Especularidade[] = {1.0f, 1.0f, 1.0f};
-
-   // ****************  Fonte de Luz 0
-
- glEnable ( GL_COLOR_MATERIAL );
-
-   // Habilita o uso de ilumina��o
-  glEnable(GL_LIGHTING);
-
-  // Ativa o uso da luz ambiente
-  glLightModelfv(GL_LIGHT_MODEL_AMBIENT, LuzAmbiente);
-  // Define os parametros da luz n�mero Zero
-  glLightfv(GL_LIGHT0, GL_AMBIENT, LuzAmbiente);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, LuzDifusa  );
-  glLightfv(GL_LIGHT0, GL_SPECULAR, LuzEspecular  );
-  glLightfv(GL_LIGHT0, GL_POSITION, PosicaoLuz0 );
-  glEnable(GL_LIGHT0);
-
-  // Ativa o "Color Tracking"
-  glEnable(GL_COLOR_MATERIAL);
-
-  // Define a reflectancia do material
-  glMaterialfv(GL_FRONT,GL_SPECULAR, Especularidade);
-
-  // Define a concentra��oo do brilho.
-  // Quanto maior o valor do Segundo parametro, mais
-  // concentrado ser� o brilho. (Valores v�lidos: de 0 a 128)
-  glMateriali(GL_FRONT,GL_SHININESS,51);
-
-}
-
-// **********************************************************************
-//  void PosicUser()
-//
-//
-// **********************************************************************
 void PosicUser()
 {
 
     // Define os par�metros da proje��o Perspectiva
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // Define o volume de visualiza��o sempre a partir da posicao do
-    // observador
-    if (ModoDeProjecao == 0)
-        glOrtho(-10, 10, -10, 10, 0, 20); // Projecao paralela Orthografica
-    else gluPerspective(90,AspectRatio,0.01,1500); // Projecao perspectiva
+
+    gluPerspective(90,AspectRatio,0.01,1500); // Projecao perspectiva
+    //mat4 pMatrix = perspective(90/180.0f, AspectRatio, 0.01f, 1500.0f);
+    //glLoadMatrixf(&pMatrix[0][0]);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
+    if(curr_view == View::ThirdPerson)
+    {
+        gluLookAt(sizeX/2, 10, 0,
+               sizeX/2, 0, sizeZ/2,
+               0,1,0);
+    }
+    else
+    {
+        /*auto cam = lookAt(vec3(sizeX/2, 15, 0),
+               vec3(sizeX/2, 0, sizeZ/2),
+               vec3(0,1,0));*/
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0, 5, 8,   // Posi��o do Observador
-              0,0,0,     // Posi��o do Alvo
-              0.0f,1.0f,0.0f); // UP
-
+        gluLookAt(sizeX/2, 10, 0,
+                  sizeX/2, 0, sizeZ/2,
+                  0,1,0);
+    }
 
 }
-// **********************************************************************
-//  void reshape( int w, int h )
-//		trata o redimensionamento da janela OpenGL
-//
-// **********************************************************************
 void reshape( int w, int h )
 {
 
@@ -442,9 +351,7 @@ void reshape( int w, int h )
 	PosicUser();
 
 }
-// **********************************************************************
-//
-// **********************************************************************
+
 void printString(string s, int posX, int posY, int cor)
 {
     defineCor(cor);
@@ -457,9 +364,7 @@ void printString(string s, int posX, int posY, int cor)
     }
     
 }
-// **********************************************************************
-//
-// **********************************************************************
+
 void DesenhaEm2D()
 {
     int ativarLuz = false;
@@ -506,14 +411,36 @@ void DesenhaEm2D()
 
 }
 
-// **********************************************************************
-//  void display( void )
-//
-//
-// **********************************************************************
+void drawSkyBox()
+{
+    // draw skybox as last
+
+    glEnable(GL_TEXTURE_CUBE_MAP);
+    glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+    // skybox cube
+    skyboxShader->use();
+    mat4 view = mat4(glm::mat3(lookAt(vec3(0, 0.5, 2), vec3(0,0,0), vec3(0,1,0)))); // remove translation from the view matrix
+    skyboxShader->setMat4("view", view);
+    mat4 projection = perspective(90/180.0f, AspectRatio, 0.01f, 1500.0f);
+    skyboxShader->setMat4("projection", projection);
+    glPushMatrix();
+    glTranslatef(sizeX/2, 0, sizeZ/2);
+    glScalef(20,20,20);
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, gt->cubeMap);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glPopMatrix();
+    glDepthFunc(GL_LESS); // set depth function back to default
+    glDisable(GL_TEXTURE_CUBE_MAP);
+}
+
 void display( void )
 {
 
+
+    glDisable(GL_TEXTURE_2D);
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	DefineLuz();
@@ -525,46 +452,39 @@ void display( void )
 
     glColor3f(1,1,1);
     TracaBezier3Pontos();
-    
-    DesenhaCidade(QtdX,QtdZ);
+
+    DesenhaCidade();
+    drawSkyBox();
+
     DesenhaEm2D();
 
 	glutSwapBuffers();
 }
 
 
-// **********************************************************************
-//  void keyboard ( unsigned char key, int x, int y )
-//
-//
-// **********************************************************************
 void keyboard ( unsigned char key, int x, int y )
 {
 	switch ( key ) 
 	{
-    case 27:        // Termina o programa qdo
-      exit ( 0 );   // a tecla ESC for pressionada
-      break;        
-    case 'p':
-            ModoDeProjecao = !ModoDeProjecao;
+        case 27:        // Termina o programa qdo
+            exit ( 0 );   // a tecla ESC for pressionada
+            break;
+	    case 49:
+	        curr_view = View::ThirdPerson;
+	        glutPostRedisplay();
+	        break;
+        case 50:
+            curr_view = View::Floating;
             glutPostRedisplay();
             break;
-    case 'e':
-            ModoDeExibicao = !ModoDeExibicao;
-            init();
-            glutPostRedisplay();
+        case 'p':
             break;
-    default:
+        default:
             cout << key;
     break;
   }
 }
 
-// **********************************************************************
-//  void arrow_keys ( int a_keys, int x, int y )  
-//
-//
-// **********************************************************************
 void arrow_keys ( int a_keys, int x, int y )  
 {
 	switch ( a_keys ) 
@@ -580,11 +500,6 @@ void arrow_keys ( int a_keys, int x, int y )
 	}
 }
 
-// **********************************************************************
-//  void main ( int argc, char** argv )
-//
-//
-// **********************************************************************
 int main ( int argc, char** argv )   
 {
 	glutInit            ( &argc, argv ); 

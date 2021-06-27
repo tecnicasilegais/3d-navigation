@@ -40,6 +40,9 @@ public:
     bool operator>=(const Point &other) const;
     Point &operator+=(const Point &other);
     Point &operator-=(const Point &other);
+    void rotateX(GLfloat angle);
+    void rotateY(GLfloat angle);
+    void rotateZ(GLfloat angle);
     void print() const;
 };
 

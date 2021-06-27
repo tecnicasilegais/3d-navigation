@@ -51,6 +51,36 @@ Point &Point::operator-=(const Point &other)
     return *this;
 }
 
+void Point::rotateZ(GLfloat angle)
+{
+    float xr, yr;
+    double anguloRad = angle * 3.14159265359/180.0;
+    xr = x*cos(anguloRad) - y*sin(anguloRad);
+    yr = x*sin(anguloRad) + y*cos(anguloRad);
+    x = xr;
+    y = yr;
+}
+
+void Point::rotateY(GLfloat angle)
+{
+    GLfloat xr, zr;
+    double anguloRad = angle * 3.14159265359/180.0;
+    xr =  x * cos(anguloRad) + z * sin(anguloRad);
+    zr = -x * sin(anguloRad) + z * cos(anguloRad);
+    x = xr;
+    z = zr;
+}
+
+void Point::rotateX(GLfloat angle)
+{
+    float yr, zr;
+    double anguloRad = angle * 3.14159265359/180.0;
+    yr =  y*cos(anguloRad) - z*sin(anguloRad);
+    zr =  y*sin(anguloRad) + z*cos(anguloRad);
+    y = yr;
+    z = zr;
+}
+
 Point operator*(const Point &p1, const Point &p2)
 {
     Point res;
