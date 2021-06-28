@@ -10,16 +10,6 @@
  */
 GameTextures::GameTextures()
 {
-    vector<string> faces
-            {
-                    "img/right.jpg",
-                    "img/left.jpg",
-                    "img/top.jpg",
-                    "img/bottom.jpg",
-                    "img/front.jpg",
-                    "img/back.jpg",
-            };
-    cubeMap = loadCubemap(faces);
     textures[GRASS] = LoadTexture(GRASS_T);
     textures[CROSS] = LoadTexture(CROSS_T);
     textures[DL] = LoadTexture(DL_T);
@@ -37,7 +27,7 @@ GameTextures::GameTextures()
     top = LoadTexture("img/top.jpg");
     bottom = LoadTexture("img/bottom.jpg");
     right = LoadTexture("img/right.jpg");
-
+    left = LoadTexture("img/left.jpg");
 }
 /*
  * Returns the texture
@@ -68,12 +58,132 @@ void GameTextures::draw_tex_floor(int n)
     glDisable(GL_TEXTURE_2D);
 }
 
-// **********************************************************************
-// void draw_floor(int corBorda, int corDentro)
-// Desenha uma c�lula do piso.
-// Eh possivel definir a cor da borda e do interior do piso
-// O ladrilho tem largula 1, centro no (0,0,0) e est� sobre o plano XZ
-// **********************************************************************
+void GO3d::draw()
+{
+    glPushMatrix();
+
+    glTranslatef(pos.x, pos.y, pos.z);
+    glScalef(scale,scale,scale);
+    model.drawObject();
+    glPopMatrix();
+}
+
+Fuel::Fuel(Point pos)
+{
+    this->pos = pos;
+    scale = 1;
+    model.readObject(FUEL);
+}
+
+
+Player::Player(Point pos)
+{
+    this->pos = pos;
+    this->scale = 0.3f; //maintain object proportion
+    this->rotation = 0;
+    cam = Camera(pos);
+    model.readObject(CAR);
+    speed = (GLfloat) (S_SIZE) / P_TIME;
+    moving = false;
+    this->dir = 1;
+}
+
+void Player::walk_mru(double dt)
+{
+    // Position = Position0 + speed * time (* direction)
+    Point S;
+    S.x = (GLfloat)dt * this->speed * ((GLfloat)dir * cam.front.x);
+    S.z = (GLfloat)dt * this->speed * ((GLfloat)dir * cam.front.z);
+
+    this->pos.x += S.x;
+    this->pos.z += S.z;
+
+    moving = false;
+}
+
+/*
+ * Rotates player in counter-clockwise
+ * Uses the predefined rotation_incr
+ * Limits to max_rotation
+ */
+void Player::rotate_l()
+{
+    rotation += rotation_incr;
+}
+
+/*
+ * Rotates player in clockwise
+ * Uses the predefined rotation_incr
+ * Limits to max_rotation
+ */
+void Player::rotate_r()
+{
+    rotation -= rotation_incr;
+}
+void Player::rotate_camera_l()
+{
+    cam.rotation += rotation_incr;
+}
+void Player::rotate_camera_r()
+{
+    cam.rotation -= rotation_incr;
+}
+void Player::walk_forward()
+{
+    moving = dir = true;
+}
+void Player::walk_backward()
+{
+    moving = true;
+    dir = -1;
+}
+void Player::draw()
+{
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    glPushMatrix();
+
+    glTranslatef(pos.x, pos.y, pos.z);
+    if(rotation != 0)
+    {
+        glRotatef(rotation, 0,1,0);
+    }
+    glScalef(scale,scale,scale);
+    cam.update(origin, pos, rotation);
+    model.drawObject();
+
+    glPopMatrix();
+}
+
+Point calcBezier3(vector<Point> PC, double t)
+{
+    Point P;
+    double UmMenosT = 1-t;
+
+    P =  PC[0] * UmMenosT * UmMenosT + PC[1] * 2 * UmMenosT * t + PC[2] * t*t;
+    return P;
+}
+void drawBezier3Points(vector<Point> &curve)
+{
+    double t=0.0;
+    double DeltaT = 1.0/100;
+    Point P;
+
+    glLineWidth(3);
+    glBegin(GL_LINE_STRIP);
+    while(t<1.0)
+    {
+        P = calcBezier3(curve, t);
+        glVertex3f(P.x, P.y, P.z);
+        t += DeltaT;
+    }
+    P = calcBezier3(curve, 1.0); // faz o fechamento da curva
+    glVertex3f(P.x, P.y, P.z);
+    glEnd();
+}
+
+
+
 void draw_floor()
 {
 
@@ -94,20 +204,15 @@ void draw_floor()
     glEnd();
 
 }
-// **********************************************************************
-//  void draw_cube()
-//
-//
-// **********************************************************************
 void draw_cube()
 {
     glBegin ( GL_QUADS );
     // Front Face
     glNormal3f(0,0,1);
-    glTexCoord2f(0.5f, 0.0f); glVertex3f(-1.0f, -1.0f,  1.0f);
-    glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f, -1.0f,  1.0f);
-    glTexCoord2f(1.0f, 0.5f); glVertex3f( 1.0f,  1.0f,  1.0f);
-    glTexCoord2f(0.5f, 0.5); glVertex3f(-1.0f,  1.0f,  1.0f);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f(-1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f( 1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f( 1.0f,  1.0f,  1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f(-1.0f,  1.0f,  1.0f);
 
     // Back Face
     glNormal3f(0,0,-1);
@@ -146,31 +251,6 @@ void draw_cube()
     glEnd();
 }
 
-void calc_point(Point &p, Point &out)
-{
-
-    GLfloat ponto_novo[4];
-    GLfloat matriz_gl[4][4];
-    int i;
-
-    glGetFloatv(GL_MODELVIEW_MATRIX, &matriz_gl[0][0]);
-
-    for (i = 0; i < 4; i++)
-    {
-        ponto_novo[i] = matriz_gl[0][i] * p.x +
-                        matriz_gl[1][i] * p.y +
-                        matriz_gl[2][i] * p.z +
-                        matriz_gl[3][i];
-    }
-    out.x = ponto_novo[0];
-    out.y = ponto_novo[1];
-    out.z = ponto_novo[2];
-
-}
-
-// **********************************************************************
-//  void DefineLuz(void)
-// **********************************************************************
 void DefineLuz(void)
 {
     // Define cores para um objeto dourado
@@ -208,34 +288,77 @@ void DefineLuz(void)
     glMateriali(GL_FRONT,GL_SHININESS,51);
 
 }
-unsigned int loadCubemap(vector<std::string> faces)
+
+void drawCubeSk (Point &position, GameTextures &gt)
 {
-    glEnable(GL_TEXTURE_CUBE_MAP);
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+    glPushMatrix();
 
-    for (unsigned int i = 0; i < faces.size(); i++)
-    {
-        ImageClass img;
-        int data = img.Load(faces[i].c_str());
-        if (data)
-        {
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, img.SizeX(), img.SizeY(), 0, GL_RGB, GL_UNSIGNED_BYTE, img.GetImagePtr());
-            img.Delete();
-        }
-        else
-        {
-            std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-            img.Delete();
-        }
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glEnable(GL_TEXTURE_2D);
+    glColor3f(1,1,1);
+    glTranslatef(position.x, 0, position.z);
+    glScalef(33,33,33);
 
-    glDisable(GL_TEXTURE_CUBE_MAP);
-    return textureID;
+    glBindTexture (GL_TEXTURE_2D, gt.front);
+    glBegin ( GL_QUADS );
+    // Front Face
+    glNormal3f(0,0,1);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f(-1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f( 1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f( 1.0f,  1.0f,  1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f(-1.0f,  1.0f,  1.0f);
+    glEnd();
+
+    glBindTexture (GL_TEXTURE_2D, gt.back);
+    glBegin ( GL_QUADS );
+    // Back Face
+    glNormal3f(0,0,-1);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f(-1.0f, -1.0f, -1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f(-1.0f,  1.0f, -1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f( 1.0f,  1.0f, -1.0f);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f( 1.0f, -1.0f, -1.0f);
+    glEnd();
+
+    glBindTexture (GL_TEXTURE_2D, gt.top);
+    glBegin ( GL_QUADS );
+    // Top Face
+    glNormal3f(0,1,0);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f(-1.0f,  1.0f, -1.0f);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f(-1.0f,  1.0f,  1.0f);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f( 1.0f,  1.0f,  1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f( 1.0f,  1.0f, -1.0f);
+    glEnd();
+
+    glBindTexture (GL_TEXTURE_2D, gt.bottom);
+    glBegin ( GL_QUADS );
+    // Bottom Face
+    glNormal3f(0,-1,0);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f(-1.0f, -1.0f, -1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f( 1.0f, -1.0f, -1.0f);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f( 1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f(-1.0f, -1.0f,  1.0f);
+    glEnd();
+
+    glBindTexture (GL_TEXTURE_2D, gt.right);
+    glBegin ( GL_QUADS );
+    // Right face
+    glNormal3f(1,0,0);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f( 1.0f, -1.0f, -1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f( 1.0f,  1.0f, -1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f( 1.0f,  1.0f,  1.0f);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f( 1.0f, -1.0f,  1.0f);
+    glEnd();
+
+    glBindTexture (GL_TEXTURE_2D, gt.left);
+    glBegin ( GL_QUADS );
+    // Left Face
+    glNormal3f(-1,0,0);
+    glTexCoord2f(0.0f, 0.0f);glVertex3f(-1.0f, -1.0f, -1.0f);
+    glTexCoord2f(1.0f, 0.0f);glVertex3f(-1.0f, -1.0f,  1.0f);
+    glTexCoord2f(1.0f, 1.0f);glVertex3f(-1.0f,  1.0f,  1.0f);
+    glTexCoord2f(0.0f, 1.0f);glVertex3f(-1.0f,  1.0f, -1.0f);
+    glEnd();
+
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+
 }

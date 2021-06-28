@@ -34,14 +34,9 @@ using namespace std;
 
 #include <iostream>
 #include "headers/Point.h"
-#include "BoundingBox.h"
 #include "headers/Temporizador.h"
 #include "headers/ListaDeCoresRGB.h"
 #include "headers/Engine3d.h"
-#include <headers/shader.h>
-#include <glm/glm.hpp>
-#include "glm/gtc/matrix_transform.hpp"
-using namespace glm;
 
 Temporizador T;
 double AccumDeltaT=0;
@@ -53,72 +48,14 @@ GLfloat messages_panel = 0.2; //msg panel h %
 
 GameTextures* gt;
 GameObject gameFloor[30][30]; //fixed at map size
-Shader* skyboxShader;
 int sizeX = 30, sizeZ = 30;
-int curr_view = View::ThirdPerson;
-float skyboxVertices[] = {
-        // positions
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
+int curr_view = View::Floating;
+Point mapm = Point(sizeX/2,0,sizeZ/2);
 
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
+Player* player;
 
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
+vector<Point> Curva1;
 
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-        -1.0f,  1.0f, -1.0f,
-        1.0f,  1.0f, -1.0f,
-        1.0f,  1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        1.0f, -1.0f,  1.0f
-};
-
-
-/*
-// Controle do modo de projecao
-// 0: Projecao Paralela Ortografica; 1: Projecao Perspectiva
-// A funcao "PosicUser" utiliza esta variavel. O valor dela eh alterado
-// pela tecla 'p'*/
-
-
-Point Curva1[3];
-
-// Representa o conteudo de uma celula do piso
-class Elemento{
-public:
-    int tipo;
-    int cor;
-    float altura;
-    int texID;
-};
 
 // codigos que definem o o tipo do elemento que est� em uma c�lula
 #define VAZIO 0
@@ -152,31 +89,18 @@ void init_city()
 
     for (int i=0;i<sizeX;i++)
         for (int j=0; j < sizeZ; j++)
-            input >> gameFloor[j][i].model;
+            input >> gameFloor[j][i].tex;
 
 }
-unsigned int skyboxVAO, skyboxVBO;
 
-void init_skybox()
+void init_player()
 {
-
-    glewExperimental = GL_TRUE;
-    glewInit();
-
-    skyboxShader = new Shader("skybox.vs", "skybox.fs");
-    glGenVertexArrays(1, &skyboxVAO);
-    glGenBuffers(1, &skyboxVBO);
-    glBindVertexArray(skyboxVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
+    player = new Player(Point((GLfloat)sizeX/2,0,(GLfloat)sizeZ/2));
 }
 
 void init(void)
 {
-    defineCorBg(MediumAquamarine);
+    defineCorBg(Black);
     /*//transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);*/
@@ -185,27 +109,20 @@ void init(void)
     //glShadeModel(GL_FLAT);
     glColorMaterial ( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
     glEnable(GL_DEPTH_TEST);
-    glEnable (GL_CULL_FACE);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     glEnable(GL_NORMALIZE);
 
-    Curva1[0] = Point (-6,0,1);
-    Curva1[1] = Point (0,10,1);
-    Curva1[2] = Point (6,0,1);
+    Curva1.emplace_back(10,3,0);
+    Curva1.emplace_back(15,3,20);
+    Curva1.emplace_back(20,3,0);
     
     srand((unsigned int)time(NULL));
 
-    init_skybox();
-
     gt = new GameTextures();
 
-    skyboxShader->use();
-    skyboxShader->setInt("skybox", 0);
-
-
     init_city();
+
+    init_player();
 
 
 }
@@ -224,6 +141,11 @@ void animate()
     if (AccumDeltaT > 1.0/30) // fixa a atualiza��o da tela em 30
     {
         AccumDeltaT = 0;
+
+        if(player->moving)
+        {
+            player->walk_mru(1.0/30);
+        }
         glutPostRedisplay();
     }
     if (TempoTotal > 5.0)
@@ -236,39 +158,6 @@ void animate()
     }
 }
 
-// **********************************************************************
-Point CalculaBezier3(Point PC[], double t)
-{
-    Point P;
-    double UmMenosT = 1-t;
-    
-    P =  PC[0] * UmMenosT * UmMenosT + PC[1] * 2 * UmMenosT * t + PC[2] * t*t;
-    //P.z = 5;
-    return P;
-}
-// **********************************************************************
-void TracaBezier3Pontos()
-{
-    double t=0.0;
-    double DeltaT = 1.0/10;
-    Point P;
-    //cout << "DeltaT: " << DeltaT << endl;
-    glBegin(GL_LINE_STRIP);
-    
-    while(t<1.0)
-    {
-        P = CalculaBezier3(Curva1, t);
-        glVertex3f(P.x, P.y, P.z);
-        t += DeltaT;
-       // P.imprime(); cout << endl;
-    }
-    P = CalculaBezier3(Curva1, 1.0); // faz o fechamento da curva
-    glVertex3f(P.x, P.y, P.z);
-    glEnd();
-}
-// **********************************************************************
-//  Desenha um pr�dio no meio de uam c�lula
-// **********************************************************************
 void DesenhaPredio(float altura)
 {
     glPushMatrix();
@@ -279,12 +168,6 @@ void DesenhaPredio(float altura)
     
 }
 
-// **********************************************************************
-// DesenhaCidade(int nLinhas, int nColunas)
-// QtdX: nro de c�lulas em X
-// QtdZ: nro de c�lulas em Z
-// Desenha elementos que compiem a cidade
-// **********************************************************************
 void DesenhaCidade()
 {
     for(int i=0; i<sizeX; i++)
@@ -294,7 +177,7 @@ void DesenhaCidade()
             glPushMatrix();
                 auto gf = &gameFloor[i][j];
                 glTranslatef(i, 0, j);
-                gt->draw_tex_floor(gf->model);
+                gt->draw_tex_floor(gf->tex);
             glPopMatrix();
         }
     }
@@ -307,26 +190,20 @@ void PosicUser()
     glLoadIdentity();
 
     gluPerspective(90,AspectRatio,0.01,1500); // Projecao perspectiva
-    //mat4 pMatrix = perspective(90/180.0f, AspectRatio, 0.01f, 1500.0f);
-    //glLoadMatrixf(&pMatrix[0][0]);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
     if(curr_view == View::ThirdPerson)
     {
-        gluLookAt(sizeX/2, 10, 0,
-               sizeX/2, 0, sizeZ/2,
-               0,1,0);
+        gluLookAt(player->cam.observer.x, player->cam.observer.y, player->cam.observer.z,
+                  player->cam.target.x, player->cam.target.y, player->cam.target.z,
+                  0, 1, 0);
     }
     else
     {
-        /*auto cam = lookAt(vec3(sizeX/2, 15, 0),
-               vec3(sizeX/2, 0, sizeZ/2),
-               vec3(0,1,0));*/
-
-        gluLookAt(sizeX/2, 10, 0,
-                  sizeX/2, 0, sizeZ/2,
+        gluLookAt(0, 5, (GLfloat)sizeZ/2,
+                  (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
                   0,1,0);
     }
 
@@ -365,7 +242,7 @@ void printString(string s, int posX, int posY, int cor)
     
 }
 
-void DesenhaEm2D()
+void display_2d()
 {
     int ativarLuz = false;
     if (glIsEnabled(GL_LIGHTING))
@@ -411,34 +288,8 @@ void DesenhaEm2D()
 
 }
 
-void drawSkyBox()
-{
-    // draw skybox as last
-
-    glEnable(GL_TEXTURE_CUBE_MAP);
-    glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
-    // skybox cube
-    skyboxShader->use();
-    mat4 view = mat4(glm::mat3(lookAt(vec3(0, 0.5, 2), vec3(0,0,0), vec3(0,1,0)))); // remove translation from the view matrix
-    skyboxShader->setMat4("view", view);
-    mat4 projection = perspective(90/180.0f, AspectRatio, 0.01f, 1500.0f);
-    skyboxShader->setMat4("projection", projection);
-    glPushMatrix();
-    glTranslatef(sizeX/2, 0, sizeZ/2);
-    glScalef(20,20,20);
-    glBindVertexArray(skyboxVAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, gt->cubeMap);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-    glPopMatrix();
-    glDepthFunc(GL_LESS); // set depth function back to default
-    glDisable(GL_TEXTURE_CUBE_MAP);
-}
-
 void display( void )
 {
-
 
     glDisable(GL_TEXTURE_2D);
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -447,16 +298,19 @@ void display( void )
 
 	PosicUser();
     glLineWidth(2);
-	
+
 	glMatrixMode(GL_MODELVIEW);
 
     glColor3f(1,1,1);
-    TracaBezier3Pontos();
+    drawBezier3Points(Curva1);
 
     DesenhaCidade();
-    drawSkyBox();
 
-    DesenhaEm2D();
+    player->draw();
+
+    drawCubeSk(player->pos, (*gt));
+
+    display_2d();
 
 	glutSwapBuffers();
 }
@@ -477,6 +331,24 @@ void keyboard ( unsigned char key, int x, int y )
             curr_view = View::Floating;
             glutPostRedisplay();
             break;
+	    case 'w':
+	        player->walk_forward();
+	        break;
+	    case 's':
+	        player->walk_backward();
+	        break;
+	    case 'a':
+	        player->rotate_l();
+	        break;
+	    case 'd':
+	        player->rotate_r();
+	        break;
+	    case 'q':
+            player->rotate_camera_l();
+	        break;
+	    case 'e':
+	        player->rotate_camera_r();
+	        break;
         case 'p':
             break;
         default:
@@ -509,8 +381,7 @@ int main ( int argc, char** argv )
 	glutCreateWindow    ( "Computacao Grafica - Exemplo Basico 3D" ); 
 		
 	init ();
-    //system("pwd");
-	
+
 	glutDisplayFunc ( display );  
 	glutReshapeFunc ( reshape );
 	glutKeyboardFunc ( keyboard );

@@ -8,6 +8,8 @@
 #include <GL/freeglut.h>
 #include <image_libs/TextureClass.h>
 #include <map>
+#include "Object3d.h"
+#include "Camera.h"
 
 
 #define CROSS_T "textures/CROSS.png"
@@ -22,6 +24,11 @@
 #define UL_T "textures/UL.png"
 #define ULR_T "textures/ULR.png"
 #define UR_T "textures/UR.png"
+
+#define CAR "models/Car.tri"
+#define FUEL "models/fuel.tri"
+#define P_TIME 10
+#define S_SIZE 30
 
 #define GRASS 0
 #define CROSS 1
@@ -47,8 +54,7 @@ private:
     map<int, GLuint> textures;
 
 public:
-    vector<string> faces;
-    GLuint cubeMap,front,back,top,bottom,right,left;
+    GLuint front,back,top,bottom,right,left;
     GameTextures();
     GLuint get(int n);
     void draw_building(int n);
@@ -58,14 +64,50 @@ public:
 class GameObject
 {
 public:
-    int model;
+    int tex;
     bool step;
 };
 
+class GO3d:GameObject
+{
+public:
+    Point pos;
+    GLfloat scale{};
+    Object3d model;
+    virtual void draw();
+};
+
+class Fuel:public GO3d
+{
+public:
+    explicit Fuel(Point pos);
+};
+
+class Player:public GO3d
+{
+public:
+    explicit Player(Point pos);
+    Camera cam, origin;
+    GLfloat speed, rotation;
+    GLfloat rotation_incr = 10.0f;
+    bool moving;
+    int dir;
+    void walk_mru(double dt);
+    void walk_forward();
+    void walk_backward();
+    void rotate_r();
+    void rotate_l();
+    void rotate_camera_r();
+    void rotate_camera_l();
+    void draw() override;
+};
+
+Point calcBezier3(Point *PC, double t);
+void drawBezier3Points(vector<Point> &curve);
 
 void draw_floor();
 void draw_cube();
 void DefineLuz(void);
-void calc_point(Point &p, Point &out);
 unsigned int loadCubemap(vector<std::string> faces);
+void drawCubeSk (Point &position, GameTextures &gt);
 #endif //INC_3D_NAV_ENGINE3D_H

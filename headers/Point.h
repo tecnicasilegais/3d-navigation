@@ -52,5 +52,9 @@ Point operator+(const Point &p1, const Point &p2);
 Point operator-(const Point &p1, const Point &p2);
 Point get_min(Point p1, Point p2);
 Point get_max(Point p1, Point p2);
+void rotatedY(Point &origin, GLfloat angle, Point &translate, Point &out);
+Point copy(Point &other);
+void prod_vetorial(Point v1, Point v2, Point &vResult);
+void vet_unit(Point &p);
 
 #endif /* Ponto_hpp */

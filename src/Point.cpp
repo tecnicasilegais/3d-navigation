@@ -19,28 +19,29 @@ Point::Point(GLfloat x, GLfloat y, GLfloat z)
 
 void Point::print() const
 {
-    cout << "(" << x << ", " << y << ")" << endl << flush;
+    cout << "(" << x << ", " << y << ", " << z << ")" << endl << flush;
 }
 
 bool Point::operator==(const Point &other) const
 {
-    return (x == other.x) && (y == other.y);
+    return (x == other.x) && (y == other.y) && (z == other.z);
 }
 
 bool Point::operator<=(const Point &other) const
 {
-    return (x <= other.x) && (y <= other.y);
+    return (x <= other.x) && (y <= other.y) && (z <= other.z);
 }
 
 bool Point::operator>=(const Point &other) const
 {
-    return (x >= other.x) && (y >= other.y);
+    return (x >= other.x) && (y >= other.y) && (z >= other.z);
 }
 
 Point &Point::operator+=(const Point &other)
 {
     this->x += other.x;
     this->y += other.y;
+    this->z += other.z;
     return *this;
 }
 
@@ -48,6 +49,7 @@ Point &Point::operator-=(const Point &other)
 {
     this->x -= other.x;
     this->y -= other.y;
+    this->z -= other.z;
     return *this;
 }
 
@@ -85,7 +87,8 @@ Point operator*(const Point &p1, const Point &p2)
 {
     Point res;
     res.x = p1.x * p2.x;
-    res.y = p2.y * p2.y;
+    res.y = p1.y * p2.y;
+    res.z = p1.z * p2.z;
     return res;
 }
 
@@ -94,6 +97,7 @@ Point operator*(const Point &p, const double d)
     Point res;
     res.x = p.x * (GLfloat) d;
     res.y = p.y * (GLfloat) d;
+    res.z = p.z * (GLfloat) d;
     return res;
 }
 
@@ -102,6 +106,7 @@ Point operator+(const Point &p1, const Point &p2)
     Point res;
     res.x = p1.x + p2.x;
     res.y = p1.y + p2.y;
+    res.z = p1.z + p2.z;
     return res;
 }
 
@@ -110,6 +115,7 @@ Point operator-(const Point &p1, const Point &p2)
     Point res;
     res.x = p1.x - p2.x;
     res.y = p1.y - p2.y;
+    res.z = p1.z - p2.z;
     return res;
 }
 
@@ -134,6 +140,21 @@ Point get_min(Point p1, Point p2)
     return min;
 }
 
+void rotatedY(Point &origin, GLfloat angle, Point &translate, Point &out)
+{
+    GLfloat xr, zr;
+    double anguloRad = angle * 3.14159265359/180.0;
+    xr = (origin.x) * cos(anguloRad) + (origin.z) * sin(anguloRad);
+    zr = -(origin.x) * sin(anguloRad) + (origin.z) * cos(anguloRad);
+
+    out.x = xr + translate.x;
+    out.z = zr + translate.z;
+}
+Point copy(Point &other)
+{
+    return Point(other.x, other.y, other.z);
+}
+
 /**
  * Calcula o produto vetorial entre os vetores V1 e V2 e guarda em x,y,z de vResult
  */
@@ -142,4 +163,16 @@ void prod_vetorial(Point v1, Point v2, Point &vResult)
     vResult.x = v1.y * v2.z - (v1.z * v2.y);
     vResult.y = v1.z * v2.x - (v1.x * v2.z);
     vResult.z = v1.x * v2.y - (v1.y * v2.x);
+}
+
+void vet_unit(Point &p)
+{
+    float mod;
+    mod = sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+
+    if(mod == 0)  return;
+
+    p.x /=mod;
+    p.y /=mod;
+    p.z /=mod;
 }
