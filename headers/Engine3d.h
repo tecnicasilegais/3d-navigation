@@ -27,6 +27,7 @@
 
 #define CAR "models/Car.tri"
 #define FUEL "models/fuel.tri"
+
 #define P_TIME 10
 #define S_SIZE 30
 
@@ -45,7 +46,10 @@
 
 enum View{
     ThirdPerson,
-    Floating
+    Floating1,
+    Floating2,
+    Floating3,
+    Floating4
 };
 
 class GameTextures
@@ -72,11 +76,17 @@ class GO3d:GameObject
 {
 public:
     Point pos;
+    GLfloat rotation;
     GLfloat scale{};
     Object3d model;
     virtual void draw();
 };
 
+class Building: public GO3d
+{
+public:
+    explicit Building(Point pos, const string& model3d, GLfloat scale, GLfloat rotation);
+};
 class Fuel:public GO3d
 {
 public:
@@ -88,7 +98,7 @@ class Player:public GO3d
 public:
     explicit Player(Point pos);
     Camera cam, origin;
-    GLfloat speed, rotation;
+    GLfloat speed;
     GLfloat rotation_incr = 10.0f;
     bool moving;
     int dir;
@@ -99,11 +109,11 @@ public:
     void rotate_l();
     void rotate_camera_r();
     void rotate_camera_l();
+    void rotate_camera_u();
+    void rotate_camera_d();
+    void reset_camera();
     void draw() override;
 };
-
-Point calcBezier3(Point *PC, double t);
-void drawBezier3Points(vector<Point> &curve);
 
 void draw_floor();
 void draw_cube();

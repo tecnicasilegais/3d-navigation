@@ -12,10 +12,11 @@ class Camera
 {
 public:
     Camera();
-    Camera(Point pos);
+    explicit Camera(Point pos);
     Point front, target, observer;
-    GLfloat rotation;
+    GLfloat rotation_h, rotation_v;
     void update(Camera &origin, Point &position, GLfloat car_rotation);
+    void update2(Camera &origin, GLfloat car_rotation);
 };
 
 void calc_point(Point &p, Point &out);

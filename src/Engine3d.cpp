@@ -61,17 +61,29 @@ void GameTextures::draw_tex_floor(int n)
 void GO3d::draw()
 {
     glPushMatrix();
-
     glTranslatef(pos.x, pos.y, pos.z);
+    if(rotation != 0)
+    {
+        glRotatef(rotation, 0,1,0);
+    }
     glScalef(scale,scale,scale);
     model.drawObject();
     glPopMatrix();
 }
 
+Building::Building(Point pos, const string& model3d, GLfloat scale, GLfloat rotation=0.0f)
+{
+    this->pos = pos;
+    this->scale = scale;
+    this->rotation = rotation;
+    model.readObject(model3d);
+}
+
 Fuel::Fuel(Point pos)
 {
     this->pos = pos;
-    scale = 1;
+    pos.y = 0.3;
+    scale = 0.015;
     model.readObject(FUEL);
 }
 
@@ -87,7 +99,6 @@ Player::Player(Point pos)
     moving = false;
     this->dir = 1;
 }
-
 void Player::walk_mru(double dt)
 {
     // Position = Position0 + speed * time (* direction)
@@ -100,7 +111,6 @@ void Player::walk_mru(double dt)
 
     moving = false;
 }
-
 /*
  * Rotates player in counter-clockwise
  * Uses the predefined rotation_incr
@@ -110,7 +120,6 @@ void Player::rotate_l()
 {
     rotation += rotation_incr;
 }
-
 /*
  * Rotates player in clockwise
  * Uses the predefined rotation_incr
@@ -122,11 +131,24 @@ void Player::rotate_r()
 }
 void Player::rotate_camera_l()
 {
-    cam.rotation += rotation_incr;
+    cam.rotation_h += rotation_incr;
 }
 void Player::rotate_camera_r()
 {
-    cam.rotation -= rotation_incr;
+    cam.rotation_h -= rotation_incr;
+}
+void Player::rotate_camera_u()
+{
+    cam.rotation_v += 2;
+}
+void Player::rotate_camera_d()
+{
+    cam.rotation_v -= 2;
+}
+void Player::reset_camera()
+{
+    cam.rotation_h = 0;
+    cam.rotation_v = 0;
 }
 void Player::walk_forward()
 {
@@ -142,7 +164,7 @@ void Player::draw()
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
     glPushMatrix();
-
+    pos.print();
     glTranslatef(pos.x, pos.y, pos.z);
     if(rotation != 0)
     {
@@ -154,35 +176,6 @@ void Player::draw()
 
     glPopMatrix();
 }
-
-Point calcBezier3(vector<Point> PC, double t)
-{
-    Point P;
-    double UmMenosT = 1-t;
-
-    P =  PC[0] * UmMenosT * UmMenosT + PC[1] * 2 * UmMenosT * t + PC[2] * t*t;
-    return P;
-}
-void drawBezier3Points(vector<Point> &curve)
-{
-    double t=0.0;
-    double DeltaT = 1.0/100;
-    Point P;
-
-    glLineWidth(3);
-    glBegin(GL_LINE_STRIP);
-    while(t<1.0)
-    {
-        P = calcBezier3(curve, t);
-        glVertex3f(P.x, P.y, P.z);
-        t += DeltaT;
-    }
-    P = calcBezier3(curve, 1.0); // faz o fechamento da curva
-    glVertex3f(P.x, P.y, P.z);
-    glEnd();
-}
-
-
 
 void draw_floor()
 {

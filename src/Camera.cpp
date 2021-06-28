@@ -9,7 +9,7 @@ Camera::Camera()
     observer = Point(0.0f, 0.7f, -0.7f); //obs
     front = Point(0.0f,0.0f,1.0f); //car direction
     target = Point(0.0f, 0.0f, 15.0f);//target
-    rotation=0;
+    rotation_h = rotation_v = 0;
 }
 
 Camera::Camera(Point pos)
@@ -17,7 +17,7 @@ Camera::Camera(Point pos)
     observer = Point(pos.x, pos.y + 0.7f, pos.z - 0.7f); //obs
     front = Point(0.0f,0.0f,1.0f); //car direction
     target = Point(pos.x, pos.y + 0.7f, pos.z + 15.0f);//target
-    rotation = 0;
+    rotation_h = rotation_v = 0;
 }
 
 void Camera::update(Camera &origin, Point &position, GLfloat car_rotation)
@@ -31,9 +31,19 @@ void Camera::update(Camera &origin, Point &position, GLfloat car_rotation)
     observer += position;
 
     target = copy(origin.target);
-    if((bool)car_rotation || (bool)rotation)
-        target.rotateY(car_rotation+rotation);
+    if((bool)car_rotation || (bool)rotation_h)
+        target.rotateY(car_rotation + rotation_h);
     target += position;
+    target.y += rotation_v;
+}
+
+void Camera::update2(Camera &origin, GLfloat car_rotation)
+{
+    front = copy(origin.front);
+    front.rotateY(car_rotation);
+
+    calc_point(origin.observer, observer);
+    calc_point(origin.target, target);
 }
 
 void calc_point(Point &p, Point &out)

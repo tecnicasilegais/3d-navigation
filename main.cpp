@@ -33,6 +33,7 @@ using namespace std;
 #endif
 
 #include <iostream>
+#include <headers/Bezier.h>
 #include "headers/Point.h"
 #include "headers/Temporizador.h"
 #include "headers/ListaDeCoresRGB.h"
@@ -49,12 +50,13 @@ GLfloat messages_panel = 0.2; //msg panel h %
 GameTextures* gt;
 GameObject gameFloor[30][30]; //fixed at map size
 int sizeX = 30, sizeZ = 30;
-int curr_view = View::Floating;
-Point mapm = Point(sizeX/2,0,sizeZ/2);
+int curr_view = View::Floating1;
 
 Player* player;
+vector<Building> buildings;
+vector<Bezier> enemyCurves;
+vector<Fuel> fuels;
 
-vector<Point> Curva1;
 
 
 // codigos que definem o o tipo do elemento que est� em uma c�lula
@@ -76,15 +78,14 @@ void init_city()
 
     input >> sizeX >> sizeZ;
 
-    Point playerpos; //todo put inside object
-    input >> playerpos.x >> playerpos.y >> playerpos.z;
-
     int count_fuel;
     input >> count_fuel;
 
     for(int i=0; i<count_fuel; i++)
     {
-        input >> playerpos.x >> playerpos.z; //todo create fuels
+        Point pos;
+        input >> pos.x >> pos.z;
+        fuels.emplace_back(pos);
     }
 
     for (int i=0;i<sizeX;i++)
@@ -93,9 +94,37 @@ void init_city()
 
 }
 
+void init_3d_structures()
+{
+    auto bd = Building(Point(27.0f,0.1f,4.0f), "models/gas_station.tri",
+                      0.005, 90);
+    buildings.emplace_back(bd);
+
+    auto bd1 = Building(Point(3.0f, 2.0f, 24.0f), "models/p51mustg.tri",
+                        0.1, 0);
+    buildings.emplace_back(bd1);
+    auto bd2 = Building(Point(5.0f, 0.0f, 7.0f), "models/house_1.tri",
+                        0.5, 0);
+    buildings.emplace_back(bd2);
+    auto bd3 = Building(Point(5.0f, 0.0f, 15.0f), "models/build_1.tri",
+                        0.5, 0);
+    buildings.emplace_back(bd3);
+    auto bd4 = Building(Point(29.0f, 0.0f, 19.0f), "models/build_3.tri",
+                        0.001, 90);
+    buildings.emplace_back(bd4);
+    auto bd5 = Building(Point(18.0f, 0.0f, 4.0f), "models/build_2.tri",
+                        0.01, -90);
+    buildings.emplace_back(bd5);
+}
+
 void init_player()
 {
     player = new Player(Point((GLfloat)sizeX/2,0,(GLfloat)sizeZ/2));
+}
+
+void init_curves()
+{
+
 }
 
 void init(void)
@@ -111,17 +140,14 @@ void init(void)
     glEnable(GL_DEPTH_TEST);
 
     glEnable(GL_NORMALIZE);
-
-    Curva1.emplace_back(10,3,0);
-    Curva1.emplace_back(15,3,20);
-    Curva1.emplace_back(20,3,0);
     
     srand((unsigned int)time(NULL));
 
     gt = new GameTextures();
 
     init_city();
-
+    init_curves();
+    init_3d_structures();
     init_player();
 
 
@@ -158,16 +184,6 @@ void animate()
     }
 }
 
-void DesenhaPredio(float altura)
-{
-    glPushMatrix();
-        glScalef(0.2, altura, 0.2);
-        glTranslatef(0, 1, 0);
-        draw_cube();
-    glPopMatrix();
-    
-}
-
 void DesenhaCidade()
 {
     for(int i=0; i<sizeX; i++)
@@ -176,7 +192,7 @@ void DesenhaCidade()
         {
             glPushMatrix();
                 auto gf = &gameFloor[i][j];
-                glTranslatef(i, 0, j);
+                glTranslatef((GLfloat)i, 0, (GLfloat)j);
                 gt->draw_tex_floor(gf->tex);
             glPopMatrix();
         }
@@ -193,18 +209,36 @@ void PosicUser()
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    
-    if(curr_view == View::ThirdPerson)
+
+    switch(curr_view)
     {
-        gluLookAt(player->cam.observer.x, player->cam.observer.y, player->cam.observer.z,
-                  player->cam.target.x, player->cam.target.y, player->cam.target.z,
-                  0, 1, 0);
-    }
-    else
-    {
-        gluLookAt(0, 5, (GLfloat)sizeZ/2,
-                  (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
-                  0,1,0);
+        case View::Floating1:
+            gluLookAt((GLfloat)sizeX/2, 15, 0.0f,
+                      (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
+                      0,1,0);
+            break;
+        case View::Floating2:
+            gluLookAt(0, 15, (GLfloat)sizeZ/2,
+                      (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
+                      0,1,0);
+            break;
+        case View::Floating3:
+            gluLookAt((GLfloat)sizeX/2, 5, (GLfloat)sizeZ,
+                      (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
+                      0,1,0);
+            break;
+        case View::Floating4:
+            gluLookAt((GLfloat)sizeX, 15, (GLfloat)sizeZ/2,
+                      (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
+                      0,1,0);
+            break;
+        case View::ThirdPerson:
+            gluLookAt(player->cam.observer.x, player->cam.observer.y, player->cam.observer.z,
+                      player->cam.target.x, player->cam.target.y, player->cam.target.z,
+                      0, 1, 0);
+        default:
+            break;
+
     }
 
 }
@@ -229,15 +263,13 @@ void reshape( int w, int h )
 
 }
 
-void printString(string s, int posX, int posY, int cor)
+void printString(const string& s, GLfloat posX, GLfloat posY)
 {
-    defineCor(cor);
     
-    glRasterPos3i(posX, posY, 0); //define posicao na tela
-    for (int i = 0; i < s.length(); i++)
+    glRasterPos3f(posX, posY, 0); //define posicao na tela
+    for (char i : s)
     {
-//GLUT_BITMAP_HELVETICA_10,
-        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, s[i]);
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, i);
     }
     
 }
@@ -266,17 +298,27 @@ void display_2d()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Desenha linha que Divide as �reas 2D e 3D
+    /*/ Desenha linha que Divide as �reas 2D e 3D
     defineCor(Yellow);
     glLineWidth(5);
     glBegin(GL_LINES);
         glVertex2f(0,10);
         glVertex2f(10,10);
     glEnd();
-    
-    printString("Amarelo", 0, 0, Yellow);
-    printString("Vermelho", 4, 2, Red);
-    printString("Verde", 8, 4, Green);
+    */
+
+    defineCor(Gray);
+
+    //fst half
+    printString("KEYBINDINGS:", 0.1f, 8.5f);
+    printString("Movements: W A S D", 0.1f, 7.0f);
+    printString("Camera: arrow keys", 0.1f, 5.5f);
+    printString("Camera point of view: 1 2 3 4", 0.1f, 4.0f);
+    printString("Reset camera: x", 0.1f, 2.5f);
+    printString("Exit: ESC", 0.1f, 1.0f);
+
+    //snd half
+    printString("REMAINING RECHARGES: "+to_string(fuels.size()), 5.0f, 8.5f);
 
     // Resataura os par�metro que foram alterados
     glMatrixMode(GL_PROJECTION);
@@ -302,9 +344,18 @@ void display( void )
 	glMatrixMode(GL_MODELVIEW);
 
     glColor3f(1,1,1);
-    drawBezier3Points(Curva1);
 
     DesenhaCidade();
+
+    for(auto &bd : buildings)
+    {
+        bd.draw();
+    }
+
+    for(auto &f : fuels)
+    {
+        f.draw();
+    }
 
     player->draw();
 
@@ -328,7 +379,19 @@ void keyboard ( unsigned char key, int x, int y )
 	        glutPostRedisplay();
 	        break;
         case 50:
-            curr_view = View::Floating;
+            curr_view = View::Floating1;
+            glutPostRedisplay();
+            break;
+        case 51:
+            curr_view = View::Floating2;
+            glutPostRedisplay();
+            break;
+        case 52:
+            curr_view = View::Floating3;
+            glutPostRedisplay();
+            break;
+        case 53:
+            curr_view = View::Floating4;
             glutPostRedisplay();
             break;
 	    case 'w':
@@ -349,7 +412,8 @@ void keyboard ( unsigned char key, int x, int y )
 	    case 'e':
 	        player->rotate_camera_r();
 	        break;
-        case 'p':
+        case 'x':
+            player->reset_camera();
             break;
         default:
             cout << key;
@@ -362,11 +426,17 @@ void arrow_keys ( int a_keys, int x, int y )
 	switch ( a_keys ) 
 	{
 		case GLUT_KEY_UP:       // When Up Arrow Is Pressed...
-			glutFullScreen ( ); // Go Into Full Screen Mode
+            player->rotate_camera_u();
 			break;
 	    case GLUT_KEY_DOWN:     // When Down Arrow Is Pressed...
-			glutInitWindowSize  ( 700, 500 ); 
+            player->rotate_camera_d();
 			break;
+        case GLUT_KEY_LEFT:
+            player->rotate_camera_l();
+            break;
+        case GLUT_KEY_RIGHT:
+            player->rotate_camera_r();
+            break;
 		default:
 			break;
 	}
