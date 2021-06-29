@@ -22,6 +22,13 @@ void Point::print() const
     cout << "(" << x << ", " << y << ", " << z << ")" << endl << flush;
 }
 
+string Point::get() const
+{
+    char ret [30];
+    snprintf(ret, 30, "POSITION: (%.2f,%.2f,%.2f)",x, y, z);
+    return string(ret);
+}
+
 bool Point::operator==(const Point &other) const
 {
     return (x == other.x) && (y == other.y) && (z == other.z);
@@ -175,4 +182,12 @@ void vet_unit(Point &p)
     p.x /=mod;
     p.y /=mod;
     p.z /=mod;
+}
+int ceil_int(GLfloat x)
+{
+    return (int)(ceil(x));
+}
+int floor_int(GLfloat x)
+{
+    return (int)(floor(x));
 }

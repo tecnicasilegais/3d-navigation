@@ -93,15 +93,20 @@ Player::Player(Point pos)
     this->pos = pos;
     this->scale = 0.3f; //maintain object proportion
     this->rotation = 0;
+    this->fuel = MAX_FUEL;
     cam = Camera(pos);
     model.readObject(CAR);
-    speed = (GLfloat) (S_SIZE) / P_TIME;
+    speed = (GLfloat) (S_SIZE) / P_SPEED;
     moving = false;
     this->dir = 1;
 }
-void Player::walk_mru(double dt)
+/*
+ * returns old position
+ */
+Point Player::walk_mru(double dt)
 {
     // Position = Position0 + speed * time (* direction)
+    Point old = copy(pos);
     Point S;
     S.x = (GLfloat)dt * this->speed * ((GLfloat)dir * cam.front.x);
     S.z = (GLfloat)dt * this->speed * ((GLfloat)dir * cam.front.z);
@@ -110,6 +115,8 @@ void Player::walk_mru(double dt)
     this->pos.z += S.z;
 
     moving = false;
+
+    return old;
 }
 /*
  * Rotates player in counter-clockwise
@@ -159,12 +166,17 @@ void Player::walk_backward()
     moving = true;
     dir = -1;
 }
+void Player::fill()
+{
+    fuel = (fuel + S_GALLON > MAX_FUEL) ? MAX_FUEL : fuel + 20;
+}
+GLfloat Player::fuel_level()
+{
+    return (fuel / MAX_FUEL) * 100;
+}
 void Player::draw()
 {
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
     glPushMatrix();
-    pos.print();
     glTranslatef(pos.x, pos.y, pos.z);
     if(rotation != 0)
     {
@@ -177,6 +189,48 @@ void Player::draw()
     glPopMatrix();
 }
 
+
+bool handle_ambient_collision(Player &p, GameObject (*ambient)[S_SIZE][S_SIZE])
+{
+    auto x = p.pos.x;
+    auto z = p.pos.z;
+
+    if(x < 0 ||  x > 30 || z < 0 || z > 30)
+    {
+        return true;
+    }
+
+    if((*ambient)[ceil_int(x)][ceil_int(z)].tex == GRASS /*||
+            (*ambient)[floor_int(x)][floor_int(z)].tex == GRASS ||
+            (*ambient)[ceil_int(x)][floor_int(z)].tex == GRASS ||
+            (*ambient)[floor_int(x)][ceil_int(z)].tex == GRASS*/)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+void handle_fuel_collision(Player &p, vector<Fuel> &fs)
+{
+    for(auto &f:fs)
+    {
+        if(collided(p.pos, f.pos))
+        {
+
+        }
+    }
+}
+
+bool collided(Point p1, Point p2)
+{
+    if(abs(p1.x - p2.x) <= 0.5 &&
+        abs(p1.z - p2.z) <= 0.5)
+    {
+        return true;
+    }
+    return false;
+}
 void draw_floor()
 {
 

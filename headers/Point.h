@@ -24,6 +24,8 @@
 
 #include <GL/freeglut.h>
 #include<bits/stdc++.h>
+#include <stdio.h>
+#include <cmath>
 
 #endif
 
@@ -44,6 +46,7 @@ public:
     void rotateY(GLfloat angle);
     void rotateZ(GLfloat angle);
     void print() const;
+    string get() const;
 };
 
 Point operator*(const Point &p2);
@@ -56,5 +59,7 @@ void rotatedY(Point &origin, GLfloat angle, Point &translate, Point &out);
 Point copy(Point &other);
 void prod_vetorial(Point v1, Point v2, Point &vResult);
 void vet_unit(Point &p);
+int ceil_int(GLfloat x);
+int floor_int(GLfloat x);
 
 #endif /* Ponto_hpp */

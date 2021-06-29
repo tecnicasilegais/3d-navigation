@@ -51,6 +51,7 @@ GameTextures* gt;
 GameObject gameFloor[30][30]; //fixed at map size
 int sizeX = 30, sizeZ = 30;
 int curr_view = View::Floating1;
+bool debug = false;
 
 Player* player;
 vector<Building> buildings;
@@ -64,6 +65,12 @@ vector<Fuel> fuels;
 #define PREDIO 10
 #define RUA 20
 #define COMBUSTIVEL 30
+
+void switch_debug()
+{
+    debug = !debug;
+    player->speed = debug ? ((GLfloat) S_SIZE)/DB_SPEED : ((GLfloat)S_SIZE) / P_SPEED;
+}
 
 void init_city()
 {
@@ -124,6 +131,34 @@ void init_player()
 
 void init_curves()
 {
+    Bezier bz1, bz2;
+    auto c1 = Curve3(Point(8,0,5),Point(8,0,7),Point(10,0,7));
+    bz1.addCurve(c1);
+    auto c2 = Curve3(Point(10,0,7),Point(12,0,7),Point(12,0,5));
+    bz1.addCurve(c2);
+    auto c3 = Curve3(Point(12,0,5),Point(12,0,3),Point(10,0,3));
+    bz1.addCurve(c3);
+    auto c4 = Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
+    bz1.addCurve(c4);
+    enemyCurves.emplace_back(bz1);
+
+    auto c21 = Curve3(Point(16,0,10),Point(16,0,12),Point(18,0,12));
+    bz2.addCurve(c21);
+    auto c22 = Curve3(Point(18,0,12),Point(20,0,12),Point(22,0,10));
+    bz2.addCurve(c22);
+    auto c23 = Curve3(Point(22,0,10),Point(24,0,8),Point(27,0,8));
+    bz2.addCurve(c23);
+    auto c24 = Curve3(Point(27,0,8),Point(30,0,8),Point(28.5,0,10.5));
+    bz2.addCurve(c24);
+    auto c25 = Curve3(Point(28.5,0,10.5),Point(27,0,13),Point(25,0,12));
+    bz2.addCurve(c25);
+    auto c26 = Curve3(Point(25,0,12),Point(20,0,8),Point(18,0,8));
+    bz2.addCurve(c26);
+    auto c27 = Curve3(Point(18,0,8),Point(16,0,8),Point(16,0,10));
+    bz2.addCurve(c27);
+
+    enemyCurves.emplace_back(bz2);
+
 
 }
 
@@ -170,7 +205,24 @@ void animate()
 
         if(player->moving)
         {
-            player->walk_mru(1.0/30);
+            Point old = player->walk_mru(1.0/30);
+
+            if(!debug)
+            {
+                if(handle_ambient_collision((*player), &gameFloor) || player->fuel <= 0)
+                {
+                    player->pos = old;
+                    cout << "collided" << endl;
+                }
+                else
+                {
+                    player->fuel -= CONSUMPTION;
+                    if(player->fuel <= 0)
+                        player->fuel = 0;
+                }
+            }
+
+            handle_fuel_collision((*player), fuels);
         }
         glutPostRedisplay();
     }
@@ -298,15 +350,6 @@ void display_2d()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    /*/ Desenha linha que Divide as �reas 2D e 3D
-    defineCor(Yellow);
-    glLineWidth(5);
-    glBegin(GL_LINES);
-        glVertex2f(0,10);
-        glVertex2f(10,10);
-    glEnd();
-    */
-
     defineCor(Gray);
 
     //fst half
@@ -317,8 +360,21 @@ void display_2d()
     printString("Reset camera: x", 0.1f, 2.5f);
     printString("Exit: ESC", 0.1f, 1.0f);
 
+    printString(player->pos.get(), 3.0f, 8.5f);
+
     //snd half
     printString("REMAINING RECHARGES: "+to_string(fuels.size()), 5.0f, 8.5f);
+
+    char ret [30];
+    auto f_lvl = player->fuel_level();
+    snprintf(ret, 30, "FUEL: %.2f%%", f_lvl);
+    auto s = string(ret);
+    if(f_lvl > 70) {defineCor(Green);}
+    else if (f_lvl > 35) {defineCor(Yellow);}
+    else {defineCor(Red); }
+    printString(s, 5.0f, 7.0f);
+
+
 
     // Resataura os par�metro que foram alterados
     glMatrixMode(GL_PROJECTION);
@@ -334,30 +390,35 @@ void display( void )
 {
 
     glDisable(GL_TEXTURE_2D);
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	DefineLuz();
+    DefineLuz();
 
-	PosicUser();
+    PosicUser();
     glLineWidth(2);
 
-	glMatrixMode(GL_MODELVIEW);
+    glMatrixMode(GL_MODELVIEW);
 
-    glColor3f(1,1,1);
+    glColor3f(1, 1, 1);
 
     DesenhaCidade();
 
-    for(auto &bd : buildings)
+    for (auto &bd : buildings)
     {
         bd.draw();
     }
 
-    for(auto &f : fuels)
+    for (auto &f : fuels)
     {
         f.draw();
     }
 
     player->draw();
+
+    for (auto &b : enemyCurves)
+    {
+        b.drawBezier();
+    }
 
     drawCubeSk(player->pos, (*gt));
 
@@ -415,6 +476,12 @@ void keyboard ( unsigned char key, int x, int y )
         case 'x':
             player->reset_camera();
             break;
+	    case 'c':
+            glutFullScreen();
+            break;
+	    case 'z':
+	        switch_debug();
+	        break;
         default:
             cout << key;
     break;
@@ -448,7 +515,8 @@ int main ( int argc, char** argv )
 	glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB );
 	glutInitWindowPosition (0,0);
 	glutInitWindowSize  ( 700, 700 );
-	glutCreateWindow    ( "Computacao Grafica - Exemplo Basico 3D" ); 
+	glutCreateWindow    ( "Computacao Grafica - Exemplo Basico 3D" );
+    //glutFullScreen();
 		
 	init ();
 
@@ -457,6 +525,7 @@ int main ( int argc, char** argv )
 	glutKeyboardFunc ( keyboard );
 	glutSpecialFunc ( arrow_keys );
 	glutIdleFunc ( animate );
+
 
 	glutMainLoop ( );          
 	return 0; 

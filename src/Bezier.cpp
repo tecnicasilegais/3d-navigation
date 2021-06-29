@@ -16,6 +16,7 @@ int Bezier::size() const
 }
 void Bezier::addCurve(Curve3 c)
 {
+    c.p1.y = c.p2.y = c.p3.y = 5;
     curves.emplace_back(c);
     count++;
 }
@@ -24,6 +25,7 @@ void Bezier::drawBezier()
     double DeltaT = 1.0/100;
     Point P;
 
+    defineCor(Red);
     glLineWidth(3);
     glBegin(GL_LINE_STRIP);
     for(auto & curve : curves)

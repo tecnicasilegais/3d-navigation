@@ -7,6 +7,7 @@
 
 
 #include "Point.h"
+#include "ListaDeCoresRGB.h"
 
 class Curve3
 {
@@ -19,7 +20,6 @@ class Bezier
 {
     int count;
 public:
-    Bezier();
     vector<Curve3> curves;
     int size() const;
     void addCurve(Curve3 c);

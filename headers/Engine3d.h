@@ -28,8 +28,12 @@
 #define CAR "models/Car.tri"
 #define FUEL "models/fuel.tri"
 
-#define P_TIME 10
+#define DB_SPEED 2
+#define P_SPEED 6
 #define S_SIZE 30
+#define MAX_FUEL 45
+#define S_GALLON 20
+#define CONSUMPTION 0.04
 
 #define GRASS 0
 #define CROSS 1
@@ -76,8 +80,8 @@ class GO3d:GameObject
 {
 public:
     Point pos;
-    GLfloat rotation;
-    GLfloat scale{};
+    GLfloat rotation=0;
+    GLfloat scale=0;
     Object3d model;
     virtual void draw();
 };
@@ -98,11 +102,12 @@ class Player:public GO3d
 public:
     explicit Player(Point pos);
     Camera cam, origin;
+    GLfloat fuel;
     GLfloat speed;
     GLfloat rotation_incr = 10.0f;
     bool moving;
     int dir;
-    void walk_mru(double dt);
+    Point walk_mru(double dt);
     void walk_forward();
     void walk_backward();
     void rotate_r();
@@ -112,9 +117,14 @@ public:
     void rotate_camera_u();
     void rotate_camera_d();
     void reset_camera();
+    void fill();
+    GLfloat fuel_level();
     void draw() override;
 };
 
+bool handle_ambient_collision(Player &p, GameObject (*ambient)[S_SIZE][S_SIZE]);
+void handle_fuel_collision(Player &p, vector<Fuel> &fs);
+bool collided(Point p1, Point p2);
 void draw_floor();
 void draw_cube();
 void DefineLuz(void);
