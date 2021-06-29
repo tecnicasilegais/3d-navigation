@@ -132,20 +132,15 @@ void init_player()
 
 void init_curves()
 {
-    Bezier bz1, bz2;
-    auto c1 = Curve3(Point(8,0,5),Point(8,0,7),Point(10,0,7));
-    bz1.addCurve(c1);
-    auto c2 = Curve3(Point(10,0,7),Point(12,0,7),Point(12,0,5));
-    bz1.addCurve(c2);
-    auto c3 = Curve3(Point(12,0,5),Point(12,0,3),Point(10,0,3));
-    bz1.addCurve(c3);
-    auto c4 = Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
-    bz1.addCurve(c4);
+    Bezier bz1, bz2, bz3;
+    bz1.addCurve(Curve3(Point(8,0,5),Point(8,0,7),Point(10,0,7));
+    bz1.addCurve(Curve3(Point(10,0,7),Point(12,0,7),Point(12,0,5));
+    bz1.addCurve(Curve3(Point(12,0,5),Point(12,0,3),Point(10,0,3));
+    bz1.addCurve(Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
     auto p1 = Plane(bz1, "models/ufo_1.tri", 0.006f);
     p1.rotation = 90;
     p1.rot = Point(1,0,0);
     planes.emplace_back(p1);
-
 
     bz2.addCurve(Curve3(Point(16,0,10),Point(16,0,12),Point(18,0,12)));
     bz2.addCurve(Curve3(Point(18,0,12),Point(20,0,12),Point(22,0,10)));
@@ -156,11 +151,16 @@ void init_curves()
     bz2.addCurve(Curve3(Point(18,0,8),Point(16,0,8),Point(16,0,10)));
     auto p2 = Plane(bz2, "models/ufo_2.tri", 0.003f);
     p2.rotation = 0.0f;
-    //p2.rot = Point(1,0,0);
     planes.emplace_back(p2);
-
-
-
+	
+    bz2.addCurve(Curve3(Point(2,0,25),Point(2,0,32),Point(13,0,25));
+    bz2.addCurve(Curve3(Point(13,0,25),Point(26,0,18),Point(26,0,25));
+    bz2.addCurve(Curve3(Point(26,0,25),Point(26,0,32),Point(13,0,25));
+    bz2.addCurve(Curve3(Point(13,0,25),Point(2,0,18),Point(2,0,25));
+	auto p3 = Plane(bz3, "models/ufo_1.tri", 0.006f);
+	p3.rotation = 90;
+    p3.rot = Point(1,0,0);
+    planes.emplace_back(p3);
 }
 
 void init(void)
