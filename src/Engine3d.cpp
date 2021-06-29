@@ -90,6 +90,15 @@ Plane::Plane(Bezier route, const string& model3d, GLfloat scale)
 
     this->pos = this->route.step(time);
 }
+Plane::Plane(Bezier route, Object3d &model3d, GLfloat scale)
+{
+    this->route = std::move(route);
+    this->time = 0.0;
+    this->scale = scale;
+    model = model3d;
+
+    this->pos = this->route.step(time);
+}
 void Plane::incr_time()
 {
     time += (double)1/30;

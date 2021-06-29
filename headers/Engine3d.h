@@ -100,6 +100,7 @@ public:
     Point rot;
     Bezier route;
     explicit Plane(Bezier route, const string& model3d, GLfloat scale);
+    explicit Plane(Bezier route, Object3d &model3d, GLfloat scale);
     void incr_time();
     void draw() override;
 };

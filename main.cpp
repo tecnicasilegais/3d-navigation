@@ -132,12 +132,14 @@ void init_player()
 
 void init_curves()
 {
+    Object3d ufo1;
+    ufo1.readObject("models/ufo_1.tri");
     Bezier bz1, bz2, bz3;
-    bz1.addCurve(Curve3(Point(8,0,5),Point(8,0,7),Point(10,0,7));
-    bz1.addCurve(Curve3(Point(10,0,7),Point(12,0,7),Point(12,0,5));
-    bz1.addCurve(Curve3(Point(12,0,5),Point(12,0,3),Point(10,0,3));
-    bz1.addCurve(Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
-    auto p1 = Plane(bz1, "models/ufo_1.tri", 0.006f);
+    bz1.addCurve(Curve3(Point(8,0,5),Point(8,0,7),Point(10,0,7)));
+    bz1.addCurve(Curve3(Point(10,0,7),Point(12,0,7),Point(12,0,5)));
+    bz1.addCurve(Curve3(Point(12,0,5),Point(12,0,3),Point(10,0,3)));
+    bz1.addCurve(Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5)));
+    auto p1 = Plane(bz1, ufo1, 0.006f);
     p1.rotation = 90;
     p1.rot = Point(1,0,0);
     planes.emplace_back(p1);
@@ -153,11 +155,11 @@ void init_curves()
     p2.rotation = 0.0f;
     planes.emplace_back(p2);
 	
-    bz2.addCurve(Curve3(Point(2,0,25),Point(2,0,32),Point(13,0,25));
-    bz2.addCurve(Curve3(Point(13,0,25),Point(26,0,18),Point(26,0,25));
-    bz2.addCurve(Curve3(Point(26,0,25),Point(26,0,32),Point(13,0,25));
-    bz2.addCurve(Curve3(Point(13,0,25),Point(2,0,18),Point(2,0,25));
-	auto p3 = Plane(bz3, "models/ufo_1.tri", 0.006f);
+    bz3.addCurve(Curve3(Point(2,0,25),Point(2,0,32),Point(13,0,25)));
+    bz3.addCurve(Curve3(Point(13,0,25),Point(26,0,18),Point(26,0,25)));
+    bz3.addCurve(Curve3(Point(26,0,25),Point(26,0,32),Point(13,0,25)));
+    bz3.addCurve(Curve3(Point(13,0,25),Point(2,0,18),Point(2,0,25)));
+	auto p3 = Plane(bz3, ufo1, 0.006f);
 	p3.rotation = 90;
     p3.rot = Point(1,0,0);
     planes.emplace_back(p3);
@@ -378,6 +380,13 @@ void display_2d()
 
     printString(player->pos.get(), 3.0f, 8.5f);
 
+    if(debug)
+    {
+        defineCor(Red);
+        printString("DEBUG MODE",3.0f, 7.0f);
+        defineCor(Gray);
+    }
+
     //snd half
     printString("REMAINING RECHARGES: "+to_string(fuels.size()), 5.0f, 8.5f);
 
@@ -434,7 +443,8 @@ void display( void )
 
     for (auto &p : planes)
     {
-        p.route.drawBezier();
+        if(debug)
+            p.route.drawBezier();
         p.draw();
     }
 
