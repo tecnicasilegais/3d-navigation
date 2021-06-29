@@ -118,7 +118,7 @@ public:
     Camera cam, origin;
     GLfloat fuel;
     GLfloat speed;
-    GLfloat rotation_incr = 10.0f;
+    GLfloat rotation_incr = 5.0f;
     bool moving;
     int dir;
     Point walk_mru(double dt);

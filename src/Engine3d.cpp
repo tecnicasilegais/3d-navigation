@@ -92,7 +92,7 @@ Plane::Plane(Bezier route, const string& model3d, GLfloat scale)
 }
 void Plane::incr_time()
 {
-    time += (double)1/60;
+    time += (double)1/30;
     if(time >= route.size())
         time = 0;
     pos = route.step(time);
