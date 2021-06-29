@@ -55,8 +55,8 @@ bool debug = false;
 
 Player* player;
 vector<Building> buildings;
-vector<Bezier> enemyCurves;
 vector<Fuel> fuels;
+vector<Plane> planes;
 
 
 
@@ -140,7 +140,9 @@ void init_curves()
     bz1.addCurve(c3);
     auto c4 = Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
     bz1.addCurve(c4);
-    enemyCurves.emplace_back(bz1);
+    planes.emplace_back(Plane(bz1, "models/ufo_1.tri", 0.006f));
+    planes[0].rotation = 0.0f;
+    planes[0].rot = Point(0,1,0);
 
     auto c21 = Curve3(Point(16,0,10),Point(16,0,12),Point(18,0,12));
     bz2.addCurve(c21);
@@ -157,7 +159,6 @@ void init_curves()
     auto c27 = Curve3(Point(18,0,8),Point(16,0,8),Point(16,0,10));
     bz2.addCurve(c27);
 
-    enemyCurves.emplace_back(bz2);
 
 
 }
@@ -186,6 +187,17 @@ void init(void)
     init_player();
 
 
+}
+
+void clean()
+{
+    auto end = remove_if(
+            fuels.begin(),
+            fuels.end(),
+            [](Fuel const &f) {
+                return !f.active;
+            });
+    fuels.erase(end, fuels.end());
 }
 
 // **********************************************************************
@@ -223,6 +235,7 @@ void animate()
             }
 
             handle_fuel_collision((*player), fuels);
+            clean();
         }
         glutPostRedisplay();
     }
@@ -410,14 +423,16 @@ void display( void )
 
     for (auto &f : fuels)
     {
-        f.draw();
+        if(f.active)
+            f.draw();
     }
 
     player->draw();
 
-    for (auto &b : enemyCurves)
+    for (auto &p : planes)
     {
-        b.drawBezier();
+        p.route.drawBezier();
+        p.draw();
     }
 
     drawCubeSk(player->pos, (*gt));
