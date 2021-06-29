@@ -20,6 +20,16 @@ void Bezier::addCurve(Curve3 c)
     curves.emplace_back(c);
     count++;
 }
+Point Bezier::step(double t)
+{
+    for(int i=0; i<count; i++)
+    {
+        if(t <= i+1)
+        {
+            return calcBezier3(curves[i], t-i);
+        }
+    }
+}
 void Bezier::drawBezier()
 {
     double DeltaT = 1.0/100;

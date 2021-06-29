@@ -87,12 +87,13 @@ void init_city()
 
     int count_fuel;
     input >> count_fuel;
-
+    Object3d fuel_model;
+    fuel_model.readObject(FUEL);
     for(int i=0; i<count_fuel; i++)
     {
         Point pos;
         input >> pos.x >> pos.z;
-        fuels.emplace_back(pos);
+        fuels.emplace_back(pos, fuel_model);
     }
 
     for (int i=0;i<sizeX;i++)
@@ -140,24 +141,23 @@ void init_curves()
     bz1.addCurve(c3);
     auto c4 = Curve3(Point(10,0,3),Point(8,0,3),Point(8,0,5));
     bz1.addCurve(c4);
-    planes.emplace_back(Plane(bz1, "models/ufo_1.tri", 0.006f));
-    planes[0].rotation = 0.0f;
-    planes[0].rot = Point(0,1,0);
+    auto p1 = Plane(bz1, "models/ufo_1.tri", 0.006f);
+    p1.rotation = 90;
+    p1.rot = Point(1,0,0);
+    planes.emplace_back(p1);
 
-    auto c21 = Curve3(Point(16,0,10),Point(16,0,12),Point(18,0,12));
-    bz2.addCurve(c21);
-    auto c22 = Curve3(Point(18,0,12),Point(20,0,12),Point(22,0,10));
-    bz2.addCurve(c22);
-    auto c23 = Curve3(Point(22,0,10),Point(24,0,8),Point(27,0,8));
-    bz2.addCurve(c23);
-    auto c24 = Curve3(Point(27,0,8),Point(30,0,8),Point(28.5,0,10.5));
-    bz2.addCurve(c24);
-    auto c25 = Curve3(Point(28.5,0,10.5),Point(27,0,13),Point(25,0,12));
-    bz2.addCurve(c25);
-    auto c26 = Curve3(Point(25,0,12),Point(20,0,8),Point(18,0,8));
-    bz2.addCurve(c26);
-    auto c27 = Curve3(Point(18,0,8),Point(16,0,8),Point(16,0,10));
-    bz2.addCurve(c27);
+
+    bz2.addCurve(Curve3(Point(16,0,10),Point(16,0,12),Point(18,0,12)));
+    bz2.addCurve(Curve3(Point(18,0,12),Point(20,0,12),Point(22,0,10)));
+    bz2.addCurve(Curve3(Point(22,0,10),Point(24,0,8),Point(27,0,8)));
+    bz2.addCurve(Curve3(Point(27,0,8),Point(30,0,8),Point(28.5,0,10.5)));
+    bz2.addCurve(Curve3(Point(28.5,0,10.5),Point(27,0,13),Point(25,0,12)));
+    bz2.addCurve(Curve3(Point(25,0,12),Point(20,0,8),Point(18,0,8)));
+    bz2.addCurve(Curve3(Point(18,0,8),Point(16,0,8),Point(16,0,10)));
+    auto p2 = Plane(bz2, "models/ufo_2.tri", 0.003f);
+    p2.rotation = 0.0f;
+    //p2.rot = Point(1,0,0);
+    planes.emplace_back(p2);
 
 
 
@@ -211,13 +211,16 @@ void animate()
     TempoTotal += dt;
     nFrames++;
 
-    if (AccumDeltaT > 1.0/30) // fixa a atualiza��o da tela em 30
+    if (AccumDeltaT > 1.0/60) // fixa a atualiza��o da tela em 30
     {
         AccumDeltaT = 0;
-
+        for(auto &p : planes)
+        {
+            p.incr_time();
+        }
         if(player->moving)
         {
-            Point old = player->walk_mru(1.0/30);
+            Point old = player->walk_mru(1.0/60);
 
             if(!debug)
             {
@@ -278,12 +281,12 @@ void PosicUser()
     switch(curr_view)
     {
         case View::Floating1:
-            gluLookAt((GLfloat)sizeX/2, 15, 0.0f,
+            gluLookAt((GLfloat)sizeX/2, 10, 0.0f,
                       (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
                       0,1,0);
             break;
         case View::Floating2:
-            gluLookAt(0, 15, (GLfloat)sizeZ/2,
+            gluLookAt(0, 10, (GLfloat)sizeZ/2,
                       (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
                       0,1,0);
             break;
@@ -293,7 +296,7 @@ void PosicUser()
                       0,1,0);
             break;
         case View::Floating4:
-            gluLookAt((GLfloat)sizeX, 15, (GLfloat)sizeZ/2,
+            gluLookAt((GLfloat)sizeX, 10, (GLfloat)sizeZ/2,
                       (GLfloat)sizeX/2, 0, (GLfloat)sizeZ/2,
                       0,1,0);
             break;

@@ -47,7 +47,7 @@ void Object3d::readObject(const string& name)
         f >> hex >> rgb;
         faces[i].color = Color(rgb);
     }
-
+    cout << "object loaded " << name << endl;
 }
 
 void Object3d::drawObject()

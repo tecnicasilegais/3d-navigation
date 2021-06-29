@@ -10,6 +10,7 @@
 #include <map>
 #include "Object3d.h"
 #include "Camera.h"
+#include "Bezier.h"
 
 
 #define CROSS_T "textures/CROSS.png"
@@ -29,7 +30,7 @@
 #define FUEL "models/fuel.tri"
 
 #define DB_SPEED 2
-#define P_SPEED 6
+#define P_SPEED 5
 #define S_SIZE 30
 #define MAX_FUEL 45
 #define S_GALLON 20
@@ -91,10 +92,23 @@ class Building: public GO3d
 public:
     explicit Building(Point pos, const string& model3d, GLfloat scale, GLfloat rotation);
 };
+
+class Plane:public GO3d
+{
+    double time;
+public:
+    Point rot;
+    Bezier route;
+    explicit Plane(Bezier route, const string& model3d, GLfloat scale);
+    void incr_time();
+    void draw() override;
+};
+
 class Fuel:public GO3d
 {
 public:
-    explicit Fuel(Point pos);
+    explicit Fuel(Point pos, Object3d &md);
+    bool active = true;
 };
 
 class Player:public GO3d
@@ -118,7 +132,7 @@ public:
     void rotate_camera_d();
     void reset_camera();
     void fill();
-    GLfloat fuel_level();
+    GLfloat fuel_level() const;
     void draw() override;
 };
 

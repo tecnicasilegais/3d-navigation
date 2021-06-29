@@ -18,11 +18,12 @@ public:
 
 class Bezier
 {
-    int count;
+    int count = 0;
 public:
     vector<Curve3> curves;
     int size() const;
     void addCurve(Curve3 c);
+    Point step(double t);
     void drawBezier();
 };
 

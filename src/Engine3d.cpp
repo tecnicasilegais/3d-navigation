@@ -3,6 +3,8 @@
 //
 
 #include <headers/Point.h>
+
+#include <utility>
 #include "headers/Engine3d.h"
 
 /*
@@ -79,12 +81,41 @@ Building::Building(Point pos, const string& model3d, GLfloat scale, GLfloat rota
     model.readObject(model3d);
 }
 
-Fuel::Fuel(Point pos)
+Plane::Plane(Bezier route, const string& model3d, GLfloat scale)
+{
+    this->route = std::move(route);
+    this->time = 0.0;
+    this->scale = scale;
+    model.readObject(model3d);
+
+    this->pos = this->route.step(time);
+}
+void Plane::incr_time()
+{
+    time += (double)1/60;
+    if(time >= route.size())
+        time = 0;
+    pos = route.step(time);
+}
+void Plane::draw()
+{
+    glPushMatrix();
+    glTranslatef(pos.x, pos.y, pos.z);
+    if(rotation != 0)
+    {
+        glRotatef(rotation, floor(rot.x),floor(rot.y),floor(rot.z));
+    }
+    glScalef(scale,scale,scale);
+    model.drawObject();
+    glPopMatrix();
+}
+
+Fuel::Fuel(Point pos, Object3d &md)
 {
     this->pos = pos;
     pos.y = 0.3;
     scale = 0.015;
-    model.readObject(FUEL);
+    model = md;
 }
 
 
@@ -170,7 +201,7 @@ void Player::fill()
 {
     fuel = (fuel + S_GALLON > MAX_FUEL) ? MAX_FUEL : fuel + 20;
 }
-GLfloat Player::fuel_level()
+GLfloat Player::fuel_level() const
 {
     return (fuel / MAX_FUEL) * 100;
 }
@@ -215,9 +246,10 @@ void handle_fuel_collision(Player &p, vector<Fuel> &fs)
 {
     for(auto &f:fs)
     {
-        if(collided(p.pos, f.pos))
+        if(f.active && collided(p.pos, f.pos))
         {
-
+            p.fill();
+            f.active = false;
         }
     }
 }
